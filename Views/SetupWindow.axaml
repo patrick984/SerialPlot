@@ -24,7 +24,7 @@
       <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Source}"/>
 
       <TextBlock Text="Serial port" Classes="label"/>
-      <TextBox Text="{Binding SerialPort}" PlaceholderText="COM3 or /dev/ttyUSB0"/>
+      <TextBox Text="{Binding SerialPort}" Watermark="COM3 or /dev/ttyUSB0"/>
 
       <TextBlock Text="Baud" Classes="label"/>
       <NumericUpDown Value="{Binding Baud}" Minimum="1" Maximum="4000000" Increment="9600"/>
@@ -48,10 +48,10 @@
       <TextBox Text="{Binding InitialX}"/>
 
       <TextBlock Text="Initial left Y channels" Classes="label"/>
-      <TextBox Text="{Binding InitialYLeft}" PlaceholderText="comma-separated"/>
+      <TextBox Text="{Binding InitialYLeft}" Watermark="comma-separated"/>
 
       <TextBlock Text="Initial right Y channels" Classes="label"/>
-      <TextBox Text="{Binding InitialYRight}" PlaceholderText="comma-separated"/>
+      <TextBox Text="{Binding InitialYRight}" Watermark="comma-separated"/>
 
       <Border IsVisible="{Binding HasError}"
               Background="#5B1E1E"
