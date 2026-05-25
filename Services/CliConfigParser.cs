@@ -9,10 +9,17 @@ namespace SerialPlot.Services;
 
 public static class CliConfigParser
 {
-    public static ConfigParseResult Parse(string[] args)
+    public static ConfigParseResult Parse(string[] args) => Parse(args, false);
+
+    public static ConfigParseResult Parse(string[] args, bool stdinRedirected)
     {
         if (args.Length == 0)
         {
+            if (stdinRedirected)
+            {
+                return new ConfigParseResult(AppConfig.Defaults(), true, null, false);
+            }
+
             return new ConfigParseResult(AppConfig.Defaults(), false, null, false);
         }
 

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using System;
 using SerialPlot.Models;
 using SerialPlot.Services;
 using SerialPlot.ViewModels;
@@ -20,7 +21,7 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var cli = CliConfigParser.Parse(desktop.Args ?? []);
+            var cli = CliConfigParser.Parse(desktop.Args ?? [], Console.IsInputRedirected);
             if (cli.IsComplete)
             {
                 desktop.MainWindow = CreateMainWindow(cli.Config);

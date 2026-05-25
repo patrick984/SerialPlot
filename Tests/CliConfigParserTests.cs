@@ -17,6 +17,16 @@ public sealed class CliConfigParserTests
     }
 
     [Fact]
+    public void NoArgsWithRedirectedStdinStartsStdinSource()
+    {
+        var result = CliConfigParser.Parse([], stdinRedirected: true);
+
+        Assert.True(result.IsComplete);
+        Assert.False(result.HadAnyArgs);
+        Assert.Equal(SourceType.Stdin, result.Config.Source);
+    }
+
+    [Fact]
     public void StdinArgsAreComplete()
     {
         var result = CliConfigParser.Parse(["--source", "stdin", "--buffer-size", "12", "--timestamp-unit", "milliseconds"]);
