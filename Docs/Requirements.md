@@ -31,8 +31,8 @@
 - Circular buffer point count.
 - Unix timestamp unit.
 - Initial X channel selection.
-- Initial Y channel selections.
-- Initial left/right Y-axis assignment for selected Y channels.
+- Initial Y channel selections (left axis).
+- Initial Y channel selections (right axis, optional).
 
 2.6 The default circular buffer size shall be 100,000 points.
 
@@ -58,7 +58,7 @@
 
 3.8 Each selected Y channel shall be manually assignable to either the left or right Y axis.
 
-3.9 The application shall display runtime errors in the main window.
+3.9 The application shall display runtime errors in pop-up pannel at the bottom of the main window.
 
 ## 4. Plot Behavior
 
