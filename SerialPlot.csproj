@@ -27,6 +27,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.1" />
     <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="ScottPlot.Avalonia" Version="5.1.57" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta7.25380.108" />
     <PackageReference Include="System.IO.Ports" Version="10.0.0" />
 
