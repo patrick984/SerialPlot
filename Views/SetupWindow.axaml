@@ -1,0 +1,70 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SerialPlot.ViewModels"
+        xmlns:models="using:SerialPlot.Models"
+        x:Class="SerialPlot.Views.SetupWindow"
+        x:DataType="vm:SetupWindowViewModel"
+        Width="520"
+        Height="620"
+        CanResize="False"
+        Title="SerialPlot Setup">
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Margin" Value="0,8,0,4"/>
+    </Style>
+    <Style Selector="TextBox, NumericUpDown, ComboBox">
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+  </Window.Styles>
+
+  <ScrollViewer>
+    <StackPanel Margin="20" Spacing="4">
+      <TextBlock Text="Source" Classes="label"/>
+      <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Source}"/>
+
+      <TextBlock Text="Serial port" Classes="label"/>
+      <TextBox Text="{Binding SerialPort}" PlaceholderText="COM3 or /dev/ttyUSB0"/>
+
+      <TextBlock Text="Baud" Classes="label"/>
+      <NumericUpDown Value="{Binding Baud}" Minimum="1" Maximum="4000000" Increment="9600"/>
+
+      <TextBlock Text="Host" Classes="label"/>
+      <TextBox Text="{Binding Host}"/>
+
+      <TextBlock Text="Port" Classes="label"/>
+      <NumericUpDown Value="{Binding Port}" Minimum="1" Maximum="65535"/>
+
+      <TextBlock Text="UDP request message" Classes="label"/>
+      <TextBox Text="{Binding UdpMessage}"/>
+
+      <TextBlock Text="Buffer size" Classes="label"/>
+      <NumericUpDown Value="{Binding BufferSize}" Minimum="1" Maximum="10000000" Increment="1000"/>
+
+      <TextBlock Text="Timestamp unit" Classes="label"/>
+      <ComboBox ItemsSource="{Binding TimestampUnits}" SelectedItem="{Binding TimestampUnit}"/>
+
+      <TextBlock Text="Initial X channel" Classes="label"/>
+      <TextBox Text="{Binding InitialX}"/>
+
+      <TextBlock Text="Initial left Y channels" Classes="label"/>
+      <TextBox Text="{Binding InitialYLeft}" PlaceholderText="comma-separated"/>
+
+      <TextBlock Text="Initial right Y channels" Classes="label"/>
+      <TextBox Text="{Binding InitialYRight}" PlaceholderText="comma-separated"/>
+
+      <Border IsVisible="{Binding HasError}"
+              Background="#5B1E1E"
+              Padding="10"
+              CornerRadius="6"
+              Margin="0,12,0,4">
+        <TextBlock Text="{Binding ErrorMessage}" Foreground="White" TextWrapping="Wrap"/>
+      </Border>
+
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
+        <Button Content="Cancel" Click="CancelClicked"/>
+        <Button Content="Start" Click="StartClicked"/>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Window>
