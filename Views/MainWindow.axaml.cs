@@ -12,15 +12,18 @@ namespace SerialPlot.Views;
 
 public partial class MainWindow : Window
 {
+    private MainWindowViewModel? _attachedViewModel;
+
     public MainWindow()
     {
         InitializeComponent();
         AttachedToVisualTree += (_, _) => AttachViewModel();
+        DataContextChanged += (_, _) => AttachViewModel();
         Closing += async (_, _) =>
         {
-            if (DataContext is MainWindowViewModel vm)
+            if (_attachedViewModel is not null)
             {
-                await vm.DisposeAsync();
+                await _attachedViewModel.DisposeAsync();
             }
         };
         Plot.PointerWheelChanged += PlotPointerInput;
@@ -34,9 +37,15 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (ReferenceEquals(_attachedViewModel, vm))
+        {
+            return;
+        }
+
+        _attachedViewModel = vm;
         vm.PlotDataChanged += (_, _) => RefreshPlot();
-        vm.Start();
         ConfigurePlot();
+        vm.Start();
     }
 
     private void ConfigurePlot()

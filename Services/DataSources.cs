@@ -20,12 +20,26 @@ public static class CsvLineSourceFactory
 {
     public static ICsvLineSource Create(AppConfig config) => config.Source switch
     {
-        SourceType.Stdin => new TextReaderLineSource(Console.In),
+        SourceType.Stdin => new StandardInputLineSource(),
         SourceType.Serial => new SerialLineSource(config.SerialPort!, config.Baud!.Value),
         SourceType.Tcp => new TcpLineSource(config.Host!, config.Port!.Value),
         SourceType.Udp => new UdpLineSource(config.Host!, config.Port!.Value, config.UdpMessage ?? string.Empty),
         _ => throw new InvalidOperationException("Unsupported source type."),
     };
+}
+
+public sealed class StandardInputLineSource : ICsvLineSource
+{
+    private readonly StreamReader _reader = new(Console.OpenStandardInput(), Encoding.UTF8);
+
+    public IAsyncEnumerable<string> ReadLinesAsync(CancellationToken cancellationToken)
+        => new TextReaderLineSource(_reader).ReadLinesAsync(cancellationToken);
+
+    public ValueTask DisposeAsync()
+    {
+        _reader.Dispose();
+        return ValueTask.CompletedTask;
+    }
 }
 
 public sealed class TextReaderLineSource(TextReader reader) : ICsvLineSource

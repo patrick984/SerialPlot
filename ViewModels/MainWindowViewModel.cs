@@ -70,6 +70,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     public void Start()
     {
+        Status = $"Waiting for CSV header from {DescribeSource(_config.Source)}...";
         _readerTask ??= Task.Run(ReadLoopAsync);
     }
 
@@ -170,6 +171,14 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                     }
                 });
             }
+
+            if (_schema is null && !_cancellation.IsCancellationRequested)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    Status = "Stream ended before CSV header.";
+                });
+            }
         }
         catch (OperationCanceledException)
         {
@@ -242,4 +251,13 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         await _source.DisposeAsync().ConfigureAwait(false);
         _cancellation.Dispose();
     }
+
+    private static string DescribeSource(SourceType source) => source switch
+    {
+        SourceType.Stdin => "standard input",
+        SourceType.Serial => "serial port",
+        SourceType.Tcp => "TCP socket",
+        SourceType.Udp => "UDP socket",
+        _ => "stream",
+    };
 }
