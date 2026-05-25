@@ -10,7 +10,9 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
     <Compile Remove="Tests\**" />
+    <Compile Remove="Tools\**" />
     <None Remove="Tests\**" />
+    <None Remove="Tools\**" />
   </ItemGroup>
 
   <ItemGroup>

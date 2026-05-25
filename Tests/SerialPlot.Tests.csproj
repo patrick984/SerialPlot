@@ -16,5 +16,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SerialPlot.csproj" />
+    <ProjectReference Include="..\Tools\SerialPlot.CsvGen\SerialPlot.CsvGen.csproj" />
   </ItemGroup>
 </Project>
