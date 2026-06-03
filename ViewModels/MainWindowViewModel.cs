@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -20,9 +21,13 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private readonly CsvStreamParser _parser;
     private readonly CancellationTokenSource _cancellation = new();
     private readonly object _gate = new();
+    private readonly Stopwatch _plotUpdateClock = Stopwatch.StartNew();
     private CsvSchema? _schema;
     private ColumnState[] _columnStates = [];
     private Task? _readerTask;
+    private bool _updatingChannelSelection;
+
+    private static readonly TimeSpan MinimumPlotUpdateInterval = TimeSpan.FromMilliseconds(33);
 
     public event EventHandler? PlotDataChanged;
 
@@ -48,6 +53,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     public PlotBuffer Buffer { get; }
     public RawCsvBuffer RawCsv { get; }
+    public int BufferCapacity => _config.BufferSize;
 
     public MainWindowViewModel()
         : this(AppConfig.Defaults(), new TextReaderLineSource(TextReader.Null))
@@ -85,6 +91,20 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         lock (_gate)
         {
             return Buffer.GetSeries(x.Index, yChannel.Index);
+        }
+    }
+
+    public int CopySeries(ChannelViewModel yChannel, double[] xs, double[] ys)
+    {
+        var x = SelectedXChannel;
+        if (x is null)
+        {
+            return 0;
+        }
+
+        lock (_gate)
+        {
+            return Buffer.CopySeries(x.Index, yChannel.Index, xs, ys);
         }
     }
 
@@ -165,7 +185,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     UpdateEligibility();
-                    if (!IsPaused)
+                    if (!IsPaused && ShouldUpdatePlot())
                     {
                         PlotDataChanged?.Invoke(this, EventArgs.Empty);
                     }
@@ -205,6 +225,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             {
                 if (args.PropertyName is nameof(ChannelViewModel.IsSelectedLeft) or nameof(ChannelViewModel.IsSelectedRight))
                 {
+                    ApplyExclusiveAxisSelection(channel, args.PropertyName);
                     OnPropertyChanged(nameof(SelectedLeftChannels));
                     OnPropertyChanged(nameof(SelectedRightChannels));
                     PlotDataChanged?.Invoke(this, EventArgs.Empty);
@@ -221,6 +242,42 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         }
 
         Status = "Header read; waiting for selectable data.";
+    }
+
+    private bool ShouldUpdatePlot()
+    {
+        if (_plotUpdateClock.Elapsed < MinimumPlotUpdateInterval)
+        {
+            return false;
+        }
+
+        _plotUpdateClock.Restart();
+        return true;
+    }
+
+    private void ApplyExclusiveAxisSelection(ChannelViewModel channel, string? propertyName)
+    {
+        if (_updatingChannelSelection)
+        {
+            return;
+        }
+
+        try
+        {
+            _updatingChannelSelection = true;
+            if (propertyName == nameof(ChannelViewModel.IsSelectedLeft) && channel.IsSelectedLeft)
+            {
+                channel.IsSelectedRight = false;
+            }
+            else if (propertyName == nameof(ChannelViewModel.IsSelectedRight) && channel.IsSelectedRight)
+            {
+                channel.IsSelectedLeft = false;
+            }
+        }
+        finally
+        {
+            _updatingChannelSelection = false;
+        }
     }
 
     private void UpdateEligibility()

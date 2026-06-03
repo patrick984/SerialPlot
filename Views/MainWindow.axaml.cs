@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Avalonia.Controls;
@@ -12,7 +13,9 @@ namespace SerialPlot.Views;
 
 public partial class MainWindow : Window
 {
+    private readonly Dictionary<SeriesKey, SeriesState> _series = [];
     private MainWindowViewModel? _attachedViewModel;
+    private EventHandler? _plotDataChangedHandler;
 
     public MainWindow()
     {
@@ -42,14 +45,27 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_attachedViewModel is not null && _plotDataChangedHandler is not null)
+        {
+            _attachedViewModel.PlotDataChanged -= _plotDataChangedHandler;
+        }
+
         _attachedViewModel = vm;
-        vm.PlotDataChanged += (_, _) => RefreshPlot();
+        _plotDataChangedHandler = (_, _) => RefreshPlot();
+        vm.PlotDataChanged += _plotDataChangedHandler;
         ConfigurePlot();
         vm.Start();
     }
 
     private void ConfigurePlot()
     {
+        foreach (var series in _series.Values)
+        {
+            series.Remove();
+        }
+
+        _series.Clear();
+        Plot.Plot.Clear();
         Plot.Plot.Title("Serial CSV Plotter");
         Plot.Plot.XLabel("X");
         Plot.Plot.YLabel("Left");
@@ -65,31 +81,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        Plot.Plot.Clear();
-        foreach (var channel in vm.SelectedLeftChannels)
+        SynchronizeSeries(vm);
+        foreach (var series in _series.Values)
         {
-            var (xs, ys) = vm.GetSeries(channel);
-            if (xs.Length == 0)
-            {
-                continue;
-            }
-
-            var scatter = Plot.Plot.Add.Scatter(xs, ys);
-            scatter.LegendText = channel.Name;
-            scatter.Axes.YAxis = Plot.Plot.Axes.Left;
-        }
-
-        foreach (var channel in vm.SelectedRightChannels)
-        {
-            var (xs, ys) = vm.GetSeries(channel);
-            if (xs.Length == 0)
-            {
-                continue;
-            }
-
-            var scatter = Plot.Plot.Add.Scatter(xs, ys);
-            scatter.LegendText = channel.Name;
-            scatter.Axes.YAxis = Plot.Plot.Axes.Right;
+            UpdateSeriesData(vm, series);
         }
 
         Plot.Plot.ShowLegend();
@@ -99,6 +94,58 @@ public partial class MainWindow : Window
         }
 
         Plot.Refresh();
+    }
+
+    private void SynchronizeSeries(MainWindowViewModel vm)
+    {
+        var selected = vm.SelectedLeftChannels
+            .Select(channel => new SeriesSelection(channel, SeriesSide.Left))
+            .Concat(vm.SelectedRightChannels.Select(channel => new SeriesSelection(channel, SeriesSide.Right)))
+            .ToArray();
+
+        var selectedKeys = selected.Select(x => new SeriesKey(x.Channel.Index, x.Side)).ToHashSet();
+        foreach (var key in _series.Keys.Where(key => !selectedKeys.Contains(key)).ToArray())
+        {
+            _series[key].Remove();
+            _series.Remove(key);
+        }
+
+        foreach (var selection in selected)
+        {
+            var key = new SeriesKey(selection.Channel.Index, selection.Side);
+            if (_series.ContainsKey(key))
+            {
+                continue;
+            }
+
+            _series.Add(key, CreateSeries(vm, selection));
+        }
+    }
+
+    private SeriesState CreateSeries(MainWindowViewModel vm, SeriesSelection selection)
+    {
+        var xs = new double[vm.BufferCapacity];
+        var ys = new double[vm.BufferCapacity];
+        Array.Fill(xs, double.NaN);
+        Array.Fill(ys, double.NaN);
+
+        var scatter = Plot.Plot.Add.Scatter(xs, ys);
+        scatter.LegendText = selection.Channel.Name;
+        scatter.Axes.YAxis = selection.Side == SeriesSide.Left ? Plot.Plot.Axes.Left : Plot.Plot.Axes.Right;
+
+        return new SeriesState(selection.Channel, xs, ys, () => Plot.Plot.Remove(scatter));
+    }
+
+    private static void UpdateSeriesData(MainWindowViewModel vm, SeriesState series)
+    {
+        var length = vm.CopySeries(series.Channel, series.Xs, series.Ys);
+        if (length < series.PreviousLength)
+        {
+            Array.Fill(series.Xs, double.NaN, length, series.PreviousLength - length);
+            Array.Fill(series.Ys, double.NaN, length, series.PreviousLength - length);
+        }
+
+        series.PreviousLength = length;
     }
 
     private async void ExportPngClicked(object? sender, RoutedEventArgs e)
@@ -144,5 +191,24 @@ public partial class MainWindow : Window
         {
             vm.FollowNewest = false;
         }
+    }
+
+    private enum SeriesSide
+    {
+        Left,
+        Right,
+    }
+
+    private readonly record struct SeriesKey(int ChannelIndex, SeriesSide Side);
+
+    private readonly record struct SeriesSelection(ChannelViewModel Channel, SeriesSide Side);
+
+    private sealed class SeriesState(ChannelViewModel channel, double[] xs, double[] ys, Action remove)
+    {
+        public ChannelViewModel Channel { get; } = channel;
+        public double[] Xs { get; } = xs;
+        public double[] Ys { get; } = ys;
+        public Action Remove { get; } = remove;
+        public int PreviousLength { get; set; }
     }
 }
