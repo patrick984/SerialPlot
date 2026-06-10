@@ -18,7 +18,7 @@
 
 2.3 If some command-line options are specified but required settings are missing, the application shall show the setup dialog.
 
-2.4 The setup dialog is required only for the initial runtime configuration. Saved/reusable configuration files are not required for the initial version.
+2.4 The setup dialog is required only for the initial runtime configuration. Saved/reusable configuration files are not required for the initial version, except for persisted UI preferences explicitly required elsewhere in this document.
 
 2.5 The configurable source settings shall include:
 
@@ -40,6 +40,8 @@
 
 2.8 Initial X/Y channel selections that refer to missing columns shall be ignored.
 
+2.9 The application shall persist and restore the user's last selected X autoscale mode across launches.
+
 ## 3. Main Window
 
 3.1 The main window shall contain a ScottPlot SignalXY plot.
@@ -60,6 +62,8 @@
 
 3.9 The application shall display runtime errors in pop-up pannel at the bottom of the main window.
 
+3.10 The plot controls shall provide independent persistent autoscale toggles for the X axis and Y axis.
+
 ## 4. Plot Behavior
 
 4.1 Plotting shall start only after the user selects channels or valid initial channel selections are applied from command-line options.
@@ -70,25 +74,39 @@
 
 4.4 The plot shall retain accumulated data up to the configured circular buffer point count.
 
-4.5 By default, the X axis shall autoscale to the newest buffer window.
+4.5 The X axis shall support selectable autoscale modes, including continuous follow-newest and stepped expansion.
 
-4.6 User pan or zoom shall disable automatic following of the newest buffer window.
+4.6 Continuous follow-newest mode shall autoscale the X axis to the newest buffer window.
 
-4.7 The application shall provide pause and resume controls.
+4.7 Stepped expansion mode shall estimate the incoming sample rate and expand the visible X range by about 10 seconds of expected incoming data.
 
-4.8 When plotting is paused, data acquisition shall continue and incoming data shall continue to be buffered in the background.
+4.8 In stepped expansion mode, the X range shall expand again when the newest visible data reaches about 90% of the current visible X range.
 
-4.9 The application shall provide a clear plot control.
+4.9 Stepped expansion mode shall reduce pixel flicker caused by continuously changing the X axis.
 
-4.10 The application shall provide autoscale controls.
+4.10 X and Y autoscale state shall be controlled independently.
 
-4.11 The application shall support manual zoom and pan.
+4.11 User pan or zoom shall disable autoscale only for the affected axis.
 
-4.12 The application shall support exporting the plot as a PNG image.
+4.12 The application shall provide pause and resume controls.
 
-4.13 The application shall support saving captured CSV data.
+4.13 When plotting is paused, data acquisition shall continue and incoming data shall continue to be buffered in the background.
 
-4.14 Saved captured CSV data shall contain raw incoming rows exactly as received.
+4.14 The application shall provide a clear plot control.
+
+4.15 The application shall provide autoscale controls.
+
+4.16 The application shall support manual zoom and pan.
+
+4.17 The plot shall show a cursor overlay on mouse hover for the visible point nearest to the mouse in screen distance.
+
+4.18 The cursor overlay shall show the nearest point's channel or series name, X value, and Y value.
+
+4.19 The application shall support exporting the plot as a PNG image.
+
+4.20 The application shall support saving captured CSV data.
+
+4.21 Saved captured CSV data shall contain raw incoming rows exactly as received.
 
 ## 5. Data Sources
 
