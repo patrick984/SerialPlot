@@ -29,7 +29,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     private static readonly TimeSpan MinimumPlotUpdateInterval = TimeSpan.FromMilliseconds(33);
 
-    public event EventHandler? PlotDataChanged;
+    public event EventHandler<PlotDataChangedEventArgs>? PlotDataChanged;
 
     public ObservableCollection<ChannelViewModel> Channels { get; } = [];
 
@@ -108,6 +108,42 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         }
     }
 
+    public int CopyValidPairs(ChannelViewModel yChannel, double[] xs, double[] ys)
+    {
+        var x = SelectedXChannel;
+        if (x is null)
+        {
+            return 0;
+        }
+
+        lock (_gate)
+        {
+            return Buffer.CopyValidPairs(x.Index, yChannel.Index, xs, ys);
+        }
+    }
+
+    public int CopyValidPairsSince(long afterVersion, ChannelViewModel yChannel, double[] xs, double[] ys)
+    {
+        var x = SelectedXChannel;
+        if (x is null)
+        {
+            return 0;
+        }
+
+        lock (_gate)
+        {
+            return Buffer.CopyValidPairsSince(afterVersion, x.Index, yChannel.Index, xs, ys);
+        }
+    }
+
+    public bool IsBufferVersionAvailable(long version)
+    {
+        lock (_gate)
+        {
+            return Buffer.Count == 0 || version >= Buffer.OldestVersion;
+        }
+    }
+
     public IReadOnlyList<ChannelViewModel> SelectedLeftChannels => Channels.Where(x => x.IsSelectedLeft && x.CanBeY).ToArray();
     public IReadOnlyList<ChannelViewModel> SelectedRightChannels => Channels.Where(x => x.IsSelectedRight && x.CanBeY).ToArray();
 
@@ -126,14 +162,14 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             Buffer.Clear();
         }
 
-        PlotDataChanged?.Invoke(this, EventArgs.Empty);
+        RaisePlotDataChanged(PlotDataChangeKind.Clear);
     }
 
     [RelayCommand]
     public void Autoscale()
     {
         FollowNewest = true;
-        PlotDataChanged?.Invoke(this, EventArgs.Empty);
+        RaisePlotDataChanged(PlotDataChangeKind.Autoscale);
     }
 
     public async Task SaveRawCsvAsync(string path)
@@ -149,7 +185,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     partial void OnSelectedXChannelChanged(ChannelViewModel? value)
     {
-        PlotDataChanged?.Invoke(this, EventArgs.Empty);
+        RaisePlotDataChanged(PlotDataChangeKind.XChannelChanged);
     }
 
     private async Task ReadLoopAsync()
@@ -187,7 +223,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                     UpdateEligibility();
                     if (!IsPaused && ShouldUpdatePlot())
                     {
-                        PlotDataChanged?.Invoke(this, EventArgs.Empty);
+                        RaisePlotDataChanged(PlotDataChangeKind.Append);
                     }
                 });
             }
@@ -228,7 +264,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                     ApplyExclusiveAxisSelection(channel, args.PropertyName);
                     OnPropertyChanged(nameof(SelectedLeftChannels));
                     OnPropertyChanged(nameof(SelectedRightChannels));
-                    PlotDataChanged?.Invoke(this, EventArgs.Empty);
+                    RaisePlotDataChanged(PlotDataChangeKind.SelectionChanged);
                 }
             };
             Channels.Add(channel);
@@ -253,6 +289,11 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
         _plotUpdateClock.Restart();
         return true;
+    }
+
+    private void RaisePlotDataChanged(PlotDataChangeKind kind)
+    {
+        PlotDataChanged?.Invoke(this, new PlotDataChangedEventArgs(kind, Buffer.Version));
     }
 
     private void ApplyExclusiveAxisSelection(ChannelViewModel channel, string? propertyName)
@@ -317,4 +358,20 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         SourceType.Udp => "UDP socket",
         _ => "stream",
     };
+}
+
+public sealed class PlotDataChangedEventArgs(PlotDataChangeKind kind, long bufferVersion) : EventArgs
+{
+    public PlotDataChangeKind Kind { get; } = kind;
+    public long BufferVersion { get; } = bufferVersion;
+}
+
+public enum PlotDataChangeKind
+{
+    Append,
+    Clear,
+    SelectionChanged,
+    XChannelChanged,
+    Autoscale,
+    Rebuild,
 }

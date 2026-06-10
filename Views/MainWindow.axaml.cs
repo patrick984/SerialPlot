@@ -7,6 +7,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using ScottPlot;
+using ScottPlot.Plottables;
+using SerialPlot.Services;
 using SerialPlot.ViewModels;
 
 namespace SerialPlot.Views;
@@ -15,7 +17,7 @@ public partial class MainWindow : Window
 {
     private readonly Dictionary<SeriesKey, SeriesState> _series = [];
     private MainWindowViewModel? _attachedViewModel;
-    private EventHandler? _plotDataChangedHandler;
+    private EventHandler<PlotDataChangedEventArgs>? _plotDataChangedHandler;
 
     public MainWindow()
     {
@@ -51,7 +53,7 @@ public partial class MainWindow : Window
         }
 
         _attachedViewModel = vm;
-        _plotDataChangedHandler = (_, _) => RefreshPlot();
+        _plotDataChangedHandler = (_, args) => RefreshPlot(args);
         vm.PlotDataChanged += _plotDataChangedHandler;
         ConfigurePlot();
         vm.Start();
@@ -74,7 +76,7 @@ public partial class MainWindow : Window
         Plot.Refresh();
     }
 
-    private void RefreshPlot()
+    private void RefreshPlot(PlotDataChangedEventArgs args)
     {
         if (DataContext is not MainWindowViewModel vm)
         {
@@ -84,7 +86,7 @@ public partial class MainWindow : Window
         SynchronizeSeries(vm);
         foreach (var series in _series.Values)
         {
-            UpdateSeriesData(vm, series);
+            UpdateSeriesData(vm, series, args);
         }
 
         Plot.Plot.ShowLegend();
@@ -124,28 +126,74 @@ public partial class MainWindow : Window
 
     private SeriesState CreateSeries(MainWindowViewModel vm, SeriesSelection selection)
     {
-        var xs = new double[vm.BufferCapacity];
-        var ys = new double[vm.BufferCapacity];
-        Array.Fill(xs, double.NaN);
-        Array.Fill(ys, double.NaN);
+        var buffer = new FixedXyRingBuffer(vm.BufferCapacity);
+        var color = Plot.Plot.Add.GetNextColor();
+        var older = Plot.Plot.Add.SignalXY(buffer.Xs, buffer.Ys, color);
+        var newer = Plot.Plot.Add.SignalXY(buffer.Xs, buffer.Ys, color);
+        older.LegendText = selection.Channel.Name;
+        newer.LegendText = string.Empty;
 
-        var scatter = Plot.Plot.Add.Scatter(xs, ys);
-        scatter.LegendText = selection.Channel.Name;
-        scatter.Axes.YAxis = selection.Side == SeriesSide.Left ? Plot.Plot.Axes.Left : Plot.Plot.Axes.Right;
+        var yAxis = selection.Side == SeriesSide.Left ? Plot.Plot.Axes.Left : Plot.Plot.Axes.Right;
+        older.Axes.YAxis = yAxis;
+        newer.Axes.YAxis = yAxis;
 
-        return new SeriesState(selection.Channel, xs, ys, () => Plot.Plot.Remove(scatter));
+        UpdateSignalRange(older, null);
+        UpdateSignalRange(newer, null);
+
+        return new SeriesState(
+            selection.Channel,
+            buffer,
+            () =>
+            {
+                Plot.Plot.Remove(older);
+                Plot.Plot.Remove(newer);
+            },
+            older,
+            newer,
+            new double[vm.BufferCapacity],
+            new double[vm.BufferCapacity]);
     }
 
-    private static void UpdateSeriesData(MainWindowViewModel vm, SeriesState series)
+    private static void UpdateSeriesData(MainWindowViewModel vm, SeriesState series, PlotDataChangedEventArgs args)
     {
-        var length = vm.CopySeries(series.Channel, series.Xs, series.Ys);
-        if (length < series.PreviousLength)
+        if (args.Kind is PlotDataChangeKind.Clear)
         {
-            Array.Fill(series.Xs, double.NaN, length, series.PreviousLength - length);
-            Array.Fill(series.Ys, double.NaN, length, series.PreviousLength - length);
+            series.Buffer.Clear();
+            series.LastBufferVersion = args.BufferVersion;
+            series.UpdateSegments();
+            return;
         }
 
-        series.PreviousLength = length;
+        var mustRebuild = args.Kind is PlotDataChangeKind.SelectionChanged or PlotDataChangeKind.XChannelChanged or PlotDataChangeKind.Rebuild
+            || series.LastBufferVersion < 0
+            || !vm.IsBufferVersionAvailable(series.LastBufferVersion);
+
+        if (mustRebuild)
+        {
+            var length = vm.CopyValidPairs(series.Channel, series.TempXs, series.TempYs);
+            series.Buffer.Rebuild(series.TempXs, series.TempYs, length);
+        }
+        else if (args.Kind is PlotDataChangeKind.Append)
+        {
+            var length = vm.CopyValidPairsSince(series.LastBufferVersion, series.Channel, series.TempXs, series.TempYs);
+            for (var i = 0; i < length; i++)
+            {
+                series.Buffer.Append(series.TempXs[i], series.TempYs[i]);
+            }
+        }
+
+        series.LastBufferVersion = args.BufferVersion;
+        series.UpdateSegments();
+    }
+
+    private static void UpdateSignalRange(SignalXY signal, RingIndexRange? range)
+    {
+        signal.IsVisible = range is not null;
+        if (range is { } value)
+        {
+            signal.Data.MinimumIndex = value.Minimum;
+            signal.Data.MaximumIndex = value.Maximum;
+        }
     }
 
     private async void ExportPngClicked(object? sender, RoutedEventArgs e)
@@ -203,12 +251,27 @@ public partial class MainWindow : Window
 
     private readonly record struct SeriesSelection(ChannelViewModel Channel, SeriesSide Side);
 
-    private sealed class SeriesState(ChannelViewModel channel, double[] xs, double[] ys, Action remove)
+    private sealed class SeriesState(
+        ChannelViewModel channel,
+        FixedXyRingBuffer buffer,
+        Action remove,
+        SignalXY older,
+        SignalXY newer,
+        double[] tempXs,
+        double[] tempYs)
     {
         public ChannelViewModel Channel { get; } = channel;
-        public double[] Xs { get; } = xs;
-        public double[] Ys { get; } = ys;
+        public FixedXyRingBuffer Buffer { get; } = buffer;
         public Action Remove { get; } = remove;
-        public int PreviousLength { get; set; }
+        public double[] TempXs { get; } = tempXs;
+        public double[] TempYs { get; } = tempYs;
+        public long LastBufferVersion { get; set; } = -1;
+
+        public void UpdateSegments()
+        {
+            var segments = Buffer.GetSegments();
+            UpdateSignalRange(older, segments.Older);
+            UpdateSignalRange(newer, segments.Newer);
+        }
     }
 }

@@ -8,17 +8,23 @@ public sealed class PlotBuffer
 {
     private readonly int _capacity;
     private readonly double[][] _rows;
+    private readonly long[] _rowVersions;
     private int _start;
     private int _count;
+    private long _version;
 
     public PlotBuffer(int capacity)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         _capacity = capacity;
         _rows = new double[capacity][];
+        _rowVersions = new long[capacity];
     }
 
     public int Count => _count;
+    public int Capacity => _capacity;
+    public long Version => _version;
+    public long OldestVersion => _count == 0 ? _version : _rowVersions[_start];
 
     public void Add(IReadOnlyList<ParsedCell> cells)
     {
@@ -28,22 +34,28 @@ public sealed class PlotBuffer
             row[i] = cells[i].IsValid ? cells[i].NumericValue : double.NaN;
         }
 
+        _version++;
         if (_count < _capacity)
         {
-            _rows[(_start + _count) % _capacity] = row;
+            var index = (_start + _count) % _capacity;
+            _rows[index] = row;
+            _rowVersions[index] = _version;
             _count++;
             return;
         }
 
         _rows[_start] = row;
+        _rowVersions[_start] = _version;
         _start = (_start + 1) % _capacity;
     }
 
     public void Clear()
     {
         Array.Clear(_rows);
+        Array.Clear(_rowVersions);
         _start = 0;
         _count = 0;
+        _version++;
     }
 
     public (double[] Xs, double[] Ys) GetSeries(int xIndex, int yIndex)
@@ -66,7 +78,78 @@ public sealed class PlotBuffer
 
         return length;
     }
+
+    public int CopyValidPairs(int xIndex, int yIndex, double[] xs, double[] ys)
+    {
+        var written = 0;
+        foreach (var row in EnumerateRows())
+        {
+            if (TryGetValidPair(row, xIndex, yIndex, out var x, out var y))
+            {
+                if (written >= xs.Length || written >= ys.Length)
+                {
+                    break;
+                }
+
+                xs[written] = x;
+                ys[written] = y;
+                written++;
+            }
+        }
+
+        return written;
+    }
+
+    public int CopyValidPairsSince(long afterVersion, int xIndex, int yIndex, double[] xs, double[] ys)
+    {
+        var written = 0;
+        foreach (var row in EnumerateRowsSince(afterVersion))
+        {
+            if (TryGetValidPair(row, xIndex, yIndex, out var x, out var y))
+            {
+                if (written >= xs.Length || written >= ys.Length)
+                {
+                    break;
+                }
+
+                xs[written] = x;
+                ys[written] = y;
+                written++;
+            }
+        }
+
+        return written;
+    }
+
+    public IEnumerable<PlotBufferRow> EnumerateRows()
+    {
+        for (var i = 0; i < _count; i++)
+        {
+            var index = (_start + i) % _capacity;
+            yield return new PlotBufferRow(_rowVersions[index], _rows[index]);
+        }
+    }
+
+    public IEnumerable<PlotBufferRow> EnumerateRowsSince(long afterVersion)
+    {
+        foreach (var row in EnumerateRows())
+        {
+            if (row.Version > afterVersion)
+            {
+                yield return row;
+            }
+        }
+    }
+
+    private static bool TryGetValidPair(PlotBufferRow row, int xIndex, int yIndex, out double x, out double y)
+    {
+        x = xIndex >= 0 && xIndex < row.Values.Count ? row.Values[xIndex] : double.NaN;
+        y = yIndex >= 0 && yIndex < row.Values.Count ? row.Values[yIndex] : double.NaN;
+        return double.IsFinite(x) && double.IsFinite(y);
+    }
 }
+
+public readonly record struct PlotBufferRow(long Version, IReadOnlyList<double> Values);
 
 public sealed class RawCsvBuffer(int capacity)
 {
