@@ -173,7 +173,7 @@ public partial class MainWindow : Window
             var length = vm.CopyValidPairs(series.Channel, series.TempXs, series.TempYs);
             series.Buffer.Rebuild(series.TempXs, series.TempYs, length);
         }
-        else if (args.Kind is PlotDataChangeKind.Append)
+        else if (args.BufferVersion > series.LastBufferVersion)
         {
             var length = vm.CopyValidPairsSince(series.LastBufferVersion, series.Channel, series.TempXs, series.TempYs);
             for (var i = 0; i < length; i++)

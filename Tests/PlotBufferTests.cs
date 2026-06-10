@@ -125,6 +125,60 @@ public sealed class PlotBufferTests
     }
 
     [Fact]
+    public void CopyValidPairsSinceAfterWrapSkipsOnlyOldestRowWhenAfterVersionIsOldestVersion()
+    {
+        var buffer = new PlotBuffer(3);
+        for (var i = 1; i <= 5; i++)
+        {
+            buffer.Add([new ParsedCell(i, null, true), new ParsedCell(i * 10, null, true)]);
+        }
+
+        var xs = new double[3];
+        var ys = new double[3];
+        var length = buffer.CopyValidPairsSince(buffer.OldestVersion, 0, 1, xs, ys);
+
+        Assert.Equal(2, length);
+        Assert.Equal([4, 5], xs.Take(length).ToArray());
+        Assert.Equal([40, 50], ys.Take(length).ToArray());
+    }
+
+    [Fact]
+    public void CopyValidPairsSinceAfterWrapCopiesOnlyTailRows()
+    {
+        var buffer = new PlotBuffer(3);
+        for (var i = 1; i <= 5; i++)
+        {
+            buffer.Add([new ParsedCell(i, null, true), new ParsedCell(i * 10, null, true)]);
+        }
+
+        var xs = new double[3];
+        var ys = new double[3];
+        var length = buffer.CopyValidPairsSince(buffer.Version - 1, 0, 1, xs, ys);
+
+        Assert.Equal(1, length);
+        Assert.Equal(5, xs[0]);
+        Assert.Equal(50, ys[0]);
+    }
+
+    [Fact]
+    public void CopyValidPairsSinceAfterWrapCopiesAllRetainedRowsWhenAfterVersionIsStale()
+    {
+        var buffer = new PlotBuffer(3);
+        for (var i = 1; i <= 5; i++)
+        {
+            buffer.Add([new ParsedCell(i, null, true), new ParsedCell(i * 10, null, true)]);
+        }
+
+        var xs = new double[3];
+        var ys = new double[3];
+        var length = buffer.CopyValidPairsSince(buffer.OldestVersion - 1, 0, 1, xs, ys);
+
+        Assert.Equal(3, length);
+        Assert.Equal([3, 4, 5], xs.Take(length).ToArray());
+        Assert.Equal([30, 40, 50], ys.Take(length).ToArray());
+    }
+
+    [Fact]
     public void FixedXyRingBufferReportsEmptyPartialFullWrappedAndClearedSegments()
     {
         var ring = new FixedXyRingBuffer(3);

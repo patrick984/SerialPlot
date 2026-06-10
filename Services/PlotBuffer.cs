@@ -132,12 +132,20 @@ public sealed class PlotBuffer
 
     public IEnumerable<PlotBufferRow> EnumerateRowsSince(long afterVersion)
     {
-        foreach (var row in EnumerateRows())
+        if (_count == 0 || afterVersion >= _version)
         {
-            if (row.Version > afterVersion)
-            {
-                yield return row;
-            }
+            yield break;
+        }
+
+        var oldestVersion = OldestVersion;
+        var firstOrdinal = afterVersion < oldestVersion
+            ? 0
+            : (int)Math.Min(_count, afterVersion - oldestVersion + 1);
+
+        for (var i = firstOrdinal; i < _count; i++)
+        {
+            var index = (_start + i) % _capacity;
+            yield return new PlotBufferRow(_rowVersions[index], _rows[index]);
         }
     }
 
