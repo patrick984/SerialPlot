@@ -484,6 +484,13 @@ public partial class MainWindow : Window
 
     private void PlotPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (IsPointerButtonPressed(e))
+        {
+            _lastHoverProcessedUtc = DateTime.MinValue;
+            HideCursorOverlay();
+            return;
+        }
+
         var now = DateTime.UtcNow;
         var position = e.GetPosition(Plot);
         if (now - _lastHoverProcessedUtc < MinimumHoverInterval)
@@ -493,6 +500,16 @@ public partial class MainWindow : Window
 
         _lastHoverProcessedUtc = now;
         ProcessHover(position);
+    }
+
+    private static bool IsPointerButtonPressed(PointerEventArgs e)
+    {
+        var properties = e.GetCurrentPoint(null).Properties;
+        return properties.IsLeftButtonPressed
+            || properties.IsMiddleButtonPressed
+            || properties.IsRightButtonPressed
+            || properties.IsXButton1Pressed
+            || properties.IsXButton2Pressed;
     }
 
     private void ProcessHover(Point position)
