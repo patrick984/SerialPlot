@@ -63,6 +63,9 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty]
     private XAutoscaleMode _xAutoscaleMode = XAutoscaleMode.ContinuousFollowNewest;
 
+    [ObservableProperty]
+    private int _steppedFutureSpaceSeconds = UserPreferences.DefaultSteppedFutureSpaceSeconds;
+
     public PlotBuffer Buffer { get; }
     public RawCsvBuffer RawCsv { get; }
     public int BufferCapacity => _config.BufferSize;
@@ -221,7 +224,23 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         RaisePlotDataChanged(PlotDataChangeKind.Autoscale);
         if (!_loadingPreferences)
         {
-            _ = SavePreferencesAsync(value);
+            _ = SavePreferencesAsync();
+        }
+    }
+
+    partial void OnSteppedFutureSpaceSecondsChanged(int value)
+    {
+        var clamped = UserPreferences.ClampSteppedFutureSpaceSeconds(value);
+        if (clamped != value)
+        {
+            SteppedFutureSpaceSeconds = clamped;
+            return;
+        }
+
+        RaisePlotDataChanged(PlotDataChangeKind.Autoscale);
+        if (!_loadingPreferences)
+        {
+            _ = SavePreferencesAsync();
         }
     }
 
@@ -234,6 +253,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             {
                 _loadingPreferences = true;
                 XAutoscaleMode = preferences.XAutoscaleMode;
+                SteppedFutureSpaceSeconds = preferences.SteppedFutureSpaceSeconds;
             }
             finally
             {
@@ -242,11 +262,11 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         });
     }
 
-    private async Task SavePreferencesAsync(XAutoscaleMode mode)
+    private async Task SavePreferencesAsync()
     {
         try
         {
-            await _preferencesService.SaveAsync(new UserPreferences(mode)).ConfigureAwait(false);
+            await _preferencesService.SaveAsync(new UserPreferences(XAutoscaleMode, SteppedFutureSpaceSeconds)).ConfigureAwait(false);
         }
         catch
         {

@@ -18,6 +18,7 @@ public sealed class UserPreferencesServiceTests
         var preferences = await service.LoadAsync();
 
         Assert.Equal(XAutoscaleMode.ContinuousFollowNewest, preferences.XAutoscaleMode);
+        Assert.Equal(UserPreferences.DefaultSteppedFutureSpaceSeconds, preferences.SteppedFutureSpaceSeconds);
     }
 
     [Fact]
@@ -31,6 +32,7 @@ public sealed class UserPreferencesServiceTests
         var preferences = await service.LoadAsync();
 
         Assert.Equal(XAutoscaleMode.SteppedExpansion, preferences.XAutoscaleMode);
+        Assert.Equal(UserPreferences.DefaultSteppedFutureSpaceSeconds, preferences.SteppedFutureSpaceSeconds);
     }
 
     [Fact]
@@ -60,15 +62,30 @@ public sealed class UserPreferencesServiceTests
     }
 
     [Fact]
-    public async Task SaveWritesSelectedMode()
+    public async Task FutureSpaceSecondsClampsOutOfRangeValues()
+    {
+        var path = CreateTempPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllTextAsync(path, """{"XAutoscaleMode":"SteppedExpansion","SteppedFutureSpaceSeconds":999}""");
+        var service = new UserPreferencesService(path);
+
+        var preferences = await service.LoadAsync();
+
+        Assert.Equal(XAutoscaleMode.SteppedExpansion, preferences.XAutoscaleMode);
+        Assert.Equal(UserPreferences.MaximumSteppedFutureSpaceSeconds, preferences.SteppedFutureSpaceSeconds);
+    }
+
+    [Fact]
+    public async Task SaveWritesSelectedModeAndFutureSpace()
     {
         var path = CreateTempPath();
         var service = new UserPreferencesService(path);
 
-        await service.SaveAsync(new UserPreferences(XAutoscaleMode.SteppedExpansion));
+        await service.SaveAsync(new UserPreferences(XAutoscaleMode.SteppedExpansion, 45));
         var preferences = await service.LoadAsync();
 
         Assert.Equal(XAutoscaleMode.SteppedExpansion, preferences.XAutoscaleMode);
+        Assert.Equal(45, preferences.SteppedFutureSpaceSeconds);
     }
 
     private static string CreateTempPath()

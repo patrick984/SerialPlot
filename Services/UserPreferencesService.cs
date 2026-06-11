@@ -7,9 +7,24 @@ using SerialPlot.Models;
 
 namespace SerialPlot.Services;
 
-public sealed record UserPreferences(XAutoscaleMode XAutoscaleMode)
+public sealed record UserPreferences(XAutoscaleMode XAutoscaleMode, int SteppedFutureSpaceSeconds)
 {
-    public static UserPreferences Defaults { get; } = new(XAutoscaleMode.ContinuousFollowNewest);
+    public const int DefaultSteppedFutureSpaceSeconds = 30;
+    public const int MinimumSteppedFutureSpaceSeconds = 1;
+    public const int MaximumSteppedFutureSpaceSeconds = 300;
+
+    public static UserPreferences Defaults { get; } = new(
+        XAutoscaleMode.ContinuousFollowNewest,
+        DefaultSteppedFutureSpaceSeconds);
+
+    public static int ClampSteppedFutureSpaceSeconds(int value)
+        => Math.Clamp(value, MinimumSteppedFutureSpaceSeconds, MaximumSteppedFutureSpaceSeconds);
+
+    public UserPreferences Normalize()
+    {
+        var mode = Enum.IsDefined(XAutoscaleMode) ? XAutoscaleMode : Defaults.XAutoscaleMode;
+        return new UserPreferences(mode, ClampSteppedFutureSpaceSeconds(SteppedFutureSpaceSeconds));
+    }
 }
 
 public sealed class UserPreferencesService
@@ -46,9 +61,18 @@ public sealed class UserPreferencesService
 
             await using var stream = File.OpenRead(_path);
             var preferences = await JsonSerializer.DeserializeAsync<UserPreferences>(stream, JsonOptions).ConfigureAwait(false);
-            return preferences is { } value && Enum.IsDefined(value.XAutoscaleMode)
-                ? value
-                : UserPreferences.Defaults;
+            if (preferences is null)
+            {
+                return UserPreferences.Defaults;
+            }
+
+            stream.Position = 0;
+            using var document = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
+            var hasFutureSpace = document.RootElement.TryGetProperty(nameof(UserPreferences.SteppedFutureSpaceSeconds), out _);
+            preferences = hasFutureSpace
+                ? preferences
+                : preferences with { SteppedFutureSpaceSeconds = UserPreferences.DefaultSteppedFutureSpaceSeconds };
+            return preferences.Normalize();
         }
         catch
         {
@@ -65,6 +89,6 @@ public sealed class UserPreferencesService
         }
 
         await using var stream = File.Create(_path);
-        await JsonSerializer.SerializeAsync(stream, preferences, JsonOptions).ConfigureAwait(false);
+        await JsonSerializer.SerializeAsync(stream, preferences.Normalize(), JsonOptions).ConfigureAwait(false);
     }
 }

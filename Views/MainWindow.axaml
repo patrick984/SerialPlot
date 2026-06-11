@@ -29,6 +29,12 @@
         <ComboBox ItemsSource="{Binding XAutoscaleModes}"
                   SelectedItem="{Binding XAutoscaleMode}"
                   Width="180"/>
+        <TextBlock Text="Future" VerticalAlignment="Center"/>
+        <NumericUpDown Value="{Binding SteppedFutureSpaceSeconds}"
+                       Minimum="1"
+                       Maximum="300"
+                       Increment="1"
+                       Width="72"/>
         <CheckBox Content="Y Left Auto" IsChecked="{Binding AutoScaleLeftY}" VerticalAlignment="Center"/>
         <CheckBox Content="Y Right Auto" IsChecked="{Binding AutoScaleRightY}" VerticalAlignment="Center"/>
         <Button Content="Export PNG" Click="ExportPngClicked"/>

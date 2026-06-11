@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using ScottPlot;
 using ScottPlot.Plottables;
 using SerialPlot.Models;
@@ -20,6 +21,8 @@ public partial class MainWindow : Window
 {
     private readonly Dictionary<SeriesKey, SeriesState> _series = [];
     private readonly SteppedXAxisViewport _steppedXAxisViewport = new();
+    private readonly XRangeAnimator _xRangeAnimator = new();
+    private readonly DispatcherTimer _xRangeAnimationTimer;
     private MainWindowViewModel? _attachedViewModel;
     private EventHandler<PlotDataChangedEventArgs>? _plotDataChangedHandler;
     private long _sampleRateVersion;
@@ -27,6 +30,9 @@ public partial class MainWindow : Window
     private double _sampleRatePerSecond;
     private XAutoscaleMode _lastXAutoscaleMode = XAutoscaleMode.ContinuousFollowNewest;
     private bool _lastAutoScaleX = true;
+    private DateTime _lastHoverProcessedUtc = DateTime.MinValue;
+
+    private static readonly TimeSpan MinimumHoverInterval = TimeSpan.FromMilliseconds(33);
 
     public MainWindow()
     {
@@ -44,6 +50,9 @@ public partial class MainWindow : Window
         Plot.PointerPressed += PlotPointerInput;
         Plot.PointerMoved += PlotPointerMoved;
         Plot.PointerExited += (_, _) => HideCursorOverlay();
+
+        _xRangeAnimationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        _xRangeAnimationTimer.Tick += (_, _) => TickXRangeAnimation();
     }
 
     private void AttachViewModel()
@@ -85,6 +94,7 @@ public partial class MainWindow : Window
         Plot.Plot.Axes.Right.Label.Text = "Right";
         Plot.Plot.Axes.Right.IsVisible = true;
         _steppedXAxisViewport.Reset();
+        ResetXRangeAnimation();
         HideCursorOverlay();
         Plot.Refresh();
     }
@@ -105,6 +115,10 @@ public partial class MainWindow : Window
         Plot.Plot.ShowLegend();
         UpdateSampleRate(args.BufferVersion);
         ApplyAutoscale(vm, args);
+        if (args.Kind is PlotDataChangeKind.Clear)
+        {
+            HideCursorOverlay();
+        }
 
         Plot.Refresh();
     }
@@ -172,6 +186,7 @@ public partial class MainWindow : Window
         {
             series.Buffer.Clear();
             series.LastBufferVersion = args.BufferVersion;
+            series.InvalidateHoverCache();
             series.UpdateSegments();
             return;
         }
@@ -195,6 +210,7 @@ public partial class MainWindow : Window
         }
 
         series.LastBufferVersion = args.BufferVersion;
+        series.InvalidateHoverCache();
         series.UpdateSegments();
     }
 
@@ -215,6 +231,7 @@ public partial class MainWindow : Window
             || (vm.AutoScaleX && !_lastAutoScaleX))
         {
             _steppedXAxisViewport.Reset();
+            ResetXRangeAnimation();
         }
 
         _lastXAutoscaleMode = vm.XAutoscaleMode;
@@ -225,27 +242,94 @@ public partial class MainWindow : Window
             if (vm.XAutoscaleMode is XAutoscaleMode.SteppedExpansion)
             {
                 var spacing = TryGetRecentXSpacing(out var value) ? value : double.NaN;
-                var range = _steppedXAxisViewport.Update(minX, maxX, _sampleRatePerSecond, spacing);
-                if (range is { } xRange)
+                XRange? visibleRange = TryGetVisibleXRange(out var currentRange) ? currentRange : null;
+                var targetRange = _steppedXAxisViewport.Update(
+                    minX,
+                    maxX,
+                    visibleRange,
+                    _sampleRatePerSecond,
+                    spacing,
+                    vm.SteppedFutureSpaceSeconds);
+                if (targetRange is { } xRange)
                 {
-                    Plot.Plot.Axes.SetLimitsX(xRange.Minimum, xRange.Maximum);
+                    ApplySteppedXRange(xRange);
                 }
             }
             else
             {
+                ResetXRangeAnimation();
                 Plot.Plot.Axes.SetLimitsX(minX, maxX);
             }
         }
-
-        if (vm.AutoScaleLeftY && TryGetYExtent(SeriesSide.Left, out var minLeftY, out var maxLeftY))
+        else if (!vm.AutoScaleX)
         {
-            Plot.Plot.Axes.SetLimitsY(minLeftY, maxLeftY, Plot.Plot.Axes.Left);
+            ResetXRangeAnimation();
         }
 
-        if (vm.AutoScaleRightY && TryGetYExtent(SeriesSide.Right, out var minRightY, out var maxRightY))
+        if (vm.AutoScaleLeftY && HasSeriesData(SeriesSide.Left))
         {
-            Plot.Plot.Axes.SetLimitsY(minRightY, maxRightY, Plot.Plot.Axes.Right);
+            Plot.Plot.Axes.AutoScaleY(Plot.Plot.Axes.Left);
         }
+
+        if (vm.AutoScaleRightY && HasSeriesData(SeriesSide.Right))
+        {
+            Plot.Plot.Axes.AutoScaleY(Plot.Plot.Axes.Right);
+        }
+    }
+
+    private void ApplySteppedXRange(XRange targetRange)
+    {
+        if (!TryGetVisibleXRange(out var currentRange))
+        {
+            Plot.Plot.Axes.SetLimitsX(targetRange.Minimum, targetRange.Maximum);
+            return;
+        }
+
+        if (_xRangeAnimator.Target == targetRange)
+        {
+            if (_xRangeAnimator.IsActive)
+            {
+                var range = _xRangeAnimator.Tick(DateTime.UtcNow);
+                Plot.Plot.Axes.SetLimitsX(range.Minimum, range.Maximum);
+                EnsureXRangeAnimationTimer();
+            }
+
+            return;
+        }
+
+        _xRangeAnimator.Retarget(currentRange, targetRange, DateTime.UtcNow);
+        EnsureXRangeAnimationTimer();
+    }
+
+    private void TickXRangeAnimation()
+    {
+        if (!_xRangeAnimator.IsActive)
+        {
+            _xRangeAnimationTimer.Stop();
+            return;
+        }
+
+        var range = _xRangeAnimator.Tick(DateTime.UtcNow);
+        Plot.Plot.Axes.SetLimitsX(range.Minimum, range.Maximum);
+        Plot.Refresh();
+        if (!_xRangeAnimator.IsActive)
+        {
+            _xRangeAnimationTimer.Stop();
+        }
+    }
+
+    private void EnsureXRangeAnimationTimer()
+    {
+        if (!_xRangeAnimationTimer.IsEnabled)
+        {
+            _xRangeAnimationTimer.Start();
+        }
+    }
+
+    private void ResetXRangeAnimation()
+    {
+        _xRangeAnimator.Reset();
+        _xRangeAnimationTimer.Stop();
     }
 
     private void UpdateSampleRate(long bufferVersion)
@@ -278,21 +362,8 @@ public partial class MainWindow : Window
         return NormalizeRange(ref min, ref max);
     }
 
-    private bool TryGetYExtent(SeriesSide side, out double min, out double max)
-    {
-        min = double.PositiveInfinity;
-        max = double.NegativeInfinity;
-        foreach (var series in _series.Values.Where(x => x.Side == side))
-        {
-            foreach (var point in series.Buffer.EnumeratePoints())
-            {
-                min = Math.Min(min, point.Y);
-                max = Math.Max(max, point.Y);
-            }
-        }
-
-        return NormalizeRange(ref min, ref max);
-    }
+    private bool HasSeriesData(SeriesSide side)
+        => _series.Values.Any(x => x.Side == side && x.Buffer.Count > 0);
 
     private bool TryGetRecentXSpacing(out double spacing)
     {
@@ -324,6 +395,13 @@ public partial class MainWindow : Window
         min -= padding;
         max += padding;
         return true;
+    }
+
+    private bool TryGetVisibleXRange(out XRange range)
+    {
+        var limits = Plot.Plot.Axes.GetLimits();
+        range = new XRange(limits.Left, limits.Right);
+        return double.IsFinite(range.Minimum) && double.IsFinite(range.Maximum) && range.Maximum > range.Minimum;
     }
 
     private async void ExportPngClicked(object? sender, RoutedEventArgs e)
@@ -406,30 +484,51 @@ public partial class MainWindow : Window
 
     private void PlotPointerMoved(object? sender, PointerEventArgs e)
     {
+        var now = DateTime.UtcNow;
+        var position = e.GetPosition(Plot);
+        if (now - _lastHoverProcessedUtc < MinimumHoverInterval)
+        {
+            return;
+        }
+
+        _lastHoverProcessedUtc = now;
+        ProcessHover(position);
+    }
+
+    private void ProcessHover(Point position)
+    {
         if (_series.Count == 0)
         {
             HideCursorOverlay();
             return;
         }
 
-        var position = e.GetPosition(Plot);
         var displayScale = Plot.DisplayScale == 0 ? 1 : Plot.DisplayScale;
         var mousePixelX = position.X * displayScale;
         var mousePixelY = position.Y * displayScale;
+        var hitRadius = 30 * displayScale;
+        if (!TryGetVisibleXRange(out var visibleXRange))
+        {
+            HideCursorOverlay();
+            return;
+        }
 
         CursorHit? nearest = null;
         foreach (var series in _series.Values)
         {
             var yAxis = series.Side == SeriesSide.Left ? Plot.Plot.Axes.Left : Plot.Plot.Axes.Right;
-            var point = series.Buffer.FindNearest(
+            series.EnsureHoverCache(visibleXRange);
+            var xRange = GetCandidateXRange(mousePixelX, mousePixelY, hitRadius, yAxis);
+            var point = series.HoverIndex.FindNearest(
                 mousePixelX,
                 mousePixelY,
+                xRange,
                 (x, y) =>
                 {
                     var pixel = Plot.Plot.GetPixel(new Coordinates(x, y), Plot.Plot.Axes.Bottom, yAxis);
                     return (pixel.X, pixel.Y);
                 },
-                maxDistance: 30 * displayScale);
+                hitRadius);
 
             if (point is { } value && (nearest is null || value.DistanceSquared < nearest.Value.DistanceSquared))
             {
@@ -445,6 +544,13 @@ public partial class MainWindow : Window
 
         var markerPixel = Plot.Plot.GetPixel(new Coordinates(hit.X, hit.Y), Plot.Plot.Axes.Bottom, hit.YAxis);
         ShowCursorOverlay(markerPixel.X / displayScale, markerPixel.Y / displayScale, hit);
+    }
+
+    private XRange GetCandidateXRange(double mousePixelX, double mousePixelY, double hitRadius, IYAxis yAxis)
+    {
+        var left = Plot.Plot.GetCoordinates((float)(mousePixelX - hitRadius), (float)mousePixelY, Plot.Plot.Axes.Bottom, yAxis);
+        var right = Plot.Plot.GetCoordinates((float)(mousePixelX + hitRadius), (float)mousePixelY, Plot.Plot.Axes.Bottom, yAxis);
+        return new XRange(Math.Min(left.X, right.X), Math.Max(left.X, right.X));
     }
 
     private void ShowCursorOverlay(double x, double y, CursorHit hit)
@@ -498,13 +604,34 @@ public partial class MainWindow : Window
         public Action Remove { get; } = remove;
         public double[] TempXs { get; } = tempXs;
         public double[] TempYs { get; } = tempYs;
+        public HoverPointIndex HoverIndex { get; } = new();
         public long LastBufferVersion { get; set; } = -1;
+        private long HoverCacheBufferVersion { get; set; } = -1;
+        private XRange? HoverCacheVisibleXRange { get; set; }
 
         public void UpdateSegments()
         {
             var segments = Buffer.GetSegments();
             UpdateSignalRange(older, segments.Older);
             UpdateSignalRange(newer, segments.Newer);
+        }
+
+        public void InvalidateHoverCache()
+        {
+            HoverCacheBufferVersion = -1;
+            HoverCacheVisibleXRange = null;
+        }
+
+        public void EnsureHoverCache(XRange visibleXRange)
+        {
+            if (HoverCacheBufferVersion == LastBufferVersion && HoverCacheVisibleXRange == visibleXRange)
+            {
+                return;
+            }
+
+            HoverIndex.Rebuild(Buffer.EnumeratePoints(), visibleXRange);
+            HoverCacheBufferVersion = LastBufferVersion;
+            HoverCacheVisibleXRange = visibleXRange;
         }
     }
 }

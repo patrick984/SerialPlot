@@ -9,20 +9,26 @@ public readonly record struct XRange(double Minimum, double Maximum)
 
 public sealed class SteppedXAxisViewport
 {
-    public const double ExpansionSeconds = 10;
+    public const int DefaultFutureSpaceSeconds = UserPreferences.DefaultSteppedFutureSpaceSeconds;
     public const double ExpansionThreshold = 0.9;
 
-    private XRange? _range;
+    private XRange? _target;
 
-    public XRange? Current => _range;
+    public XRange? Current => _target;
 
-    public void Reset() => _range = null;
+    public void Reset() => _target = null;
 
-    public XRange? Update(double oldestX, double newestX, double sampleRatePerSecond, double recentXSpacing)
+    public XRange? Update(
+        double oldestX,
+        double newestX,
+        XRange? visibleRange,
+        double sampleRatePerSecond,
+        double recentXSpacing,
+        int futureSpaceSeconds = DefaultFutureSpaceSeconds)
     {
         if (!double.IsFinite(oldestX) || !double.IsFinite(newestX))
         {
-            return _range;
+            return _target;
         }
 
         if (newestX < oldestX)
@@ -30,40 +36,52 @@ public sealed class SteppedXAxisViewport
             (oldestX, newestX) = (newestX, oldestX);
         }
 
-        if (_range is not { } current || newestX < current.Minimum || oldestX > current.Maximum)
+        var retainedRange = CreateDataRange(oldestX, newestX);
+        var futureSpan = EstimateFutureSpan(sampleRatePerSecond, recentXSpacing, futureSpaceSeconds);
+        var current = visibleRange is { Width: > 0 } range ? range : _target;
+        if (current is not { Width: > 0 } visible || newestX < current.Value.Minimum || oldestX > current.Value.Maximum)
         {
-            _range = CreateRange(oldestX, newestX, sampleRatePerSecond, recentXSpacing);
-            return _range;
+            _target = CreateExpansionRange(retainedRange, futureSpan);
+            return _target;
         }
 
-        var width = current.Width;
-        if (width <= 0 || newestX >= current.Minimum + (width * ExpansionThreshold))
+        if (newestX < visible.Minimum + (visible.Width * ExpansionThreshold))
         {
-            var futureSpan = EstimateFutureSpan(sampleRatePerSecond, recentXSpacing);
-            _range = new XRange(Math.Min(current.Minimum, oldestX), newestX + futureSpan);
+            return _target;
         }
 
-        return _range;
+        _target = CoversFullRetainedRange(visible, retainedRange)
+            ? CreateExpansionRange(retainedRange, futureSpan)
+            : CreatePanRange(visible, newestX, futureSpan);
+
+        return _target;
     }
 
-    private static XRange CreateRange(double oldestX, double newestX, double sampleRatePerSecond, double recentXSpacing)
+    private static XRange CreateDataRange(double oldestX, double newestX)
+        => new(oldestX, newestX);
+
+    private static XRange CreateExpansionRange(XRange retainedRange, double futureSpan)
+        => new(retainedRange.Minimum, retainedRange.Maximum + futureSpan);
+
+    private static XRange CreatePanRange(XRange visibleRange, double newestX, double futureSpan)
     {
-        var futureSpan = EstimateFutureSpan(sampleRatePerSecond, recentXSpacing);
-        var minimum = oldestX;
         var maximum = newestX + futureSpan;
-        if (maximum <= minimum)
-        {
-            maximum = minimum + futureSpan;
-        }
-
-        return new XRange(minimum, maximum);
+        return new XRange(maximum - visibleRange.Width, maximum);
     }
 
-    private static double EstimateFutureSpan(double sampleRatePerSecond, double recentXSpacing)
+    private static bool CoversFullRetainedRange(XRange visibleRange, XRange retainedRange)
     {
+        const double tolerance = 1e-9;
+        return visibleRange.Minimum <= retainedRange.Minimum + tolerance
+            && visibleRange.Maximum >= retainedRange.Maximum - tolerance;
+    }
+
+    private static double EstimateFutureSpan(double sampleRatePerSecond, double recentXSpacing, int futureSpaceSeconds)
+    {
+        futureSpaceSeconds = UserPreferences.ClampSteppedFutureSpaceSeconds(futureSpaceSeconds);
         var span = sampleRatePerSecond > 0 && double.IsFinite(sampleRatePerSecond)
             && recentXSpacing > 0 && double.IsFinite(recentXSpacing)
-            ? sampleRatePerSecond * ExpansionSeconds * recentXSpacing
+            ? sampleRatePerSecond * futureSpaceSeconds * recentXSpacing
             : 1;
 
         return span > 0 && double.IsFinite(span) ? span : 1;

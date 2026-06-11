@@ -40,7 +40,9 @@
 
 2.8 Initial X/Y channel selections that refer to missing columns shall be ignored.
 
-2.9 The application shall persist and restore the user's last selected X autoscale mode across launches.
+2.9 The application shall persist and restore the user's last selected X autoscale mode and stepped future-space duration across launches.
+
+2.10 The stepped X future-space duration shall be user-configurable, default to 30 seconds, and accept values from 1 to 300 seconds.
 
 ## 3. Main Window
 
@@ -74,15 +76,21 @@
 
 4.4 The plot shall retain accumulated data up to the configured circular buffer point count.
 
-4.5 The X axis shall support selectable autoscale modes, including continuous follow-newest and stepped expansion.
+4.5 The X axis shall support selectable autoscale modes, including continuous follow-newest and stepped.
 
 4.6 Continuous follow-newest mode shall autoscale the X axis to the newest buffer window.
 
-4.7 Stepped expansion mode shall estimate the incoming sample rate and expand the visible X range by about 10 seconds of expected incoming data.
+4.7 Stepped mode shall use the persisted future-space duration to reserve expected incoming X space ahead of the newest data.
 
-4.8 In stepped expansion mode, the X range shall expand again when the newest visible data reaches about 90% of the current visible X range.
+4.8 In stepped mode, the X range shall update when the newest visible data reaches about 90% of the current visible X range.
 
-4.9 Stepped expansion mode shall reduce pixel flicker caused by continuously changing the X axis.
+4.9 Stepped mode shall expand the visible X range when the full retained X range is visible, and shall pan automatically when the user is viewing less than the full retained X range.
+
+4.9.1 Stepped pan shall preserve the current X zoom width and shift the view right so the newest data has future-space room.
+
+4.9.2 Stepped X transitions shall animate over about 300 ms with an ease-out curve.
+
+4.9.3 Stepped mode shall reduce pixel flicker caused by continuously changing the X axis.
 
 4.10 X and Y autoscale state shall be controlled independently.
 
@@ -102,11 +110,17 @@
 
 4.18 The cursor overlay shall show the nearest point's channel or series name, X value, and Y value.
 
+4.18.1 Cursor hover shall remain responsive for large buffers by throttling pointer processing and avoiding full point scans on each pointer event.
+
+4.18.2 The cursor overlay shall hide when no visible point is within 30 screen pixels of the mouse.
+
 4.19 The application shall support exporting the plot as a PNG image.
 
 4.20 The application shall support saving captured CSV data.
 
 4.21 Saved captured CSV data shall contain raw incoming rows exactly as received.
+
+4.22 Autoscaled Y axes shall include normal plot padding using ScottPlot's default Y autoscale behavior.
 
 ## 5. Data Sources
 

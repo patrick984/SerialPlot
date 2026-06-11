@@ -10,18 +10,28 @@ public sealed class SteppedXAxisViewportTests
     {
         var viewport = new SteppedXAxisViewport();
 
-        var range = viewport.Update(0, 5, sampleRatePerSecond: 10, recentXSpacing: 0.1);
+        var range = viewport.Update(0, 5, visibleRange: null, sampleRatePerSecond: 10, recentXSpacing: 0.1);
 
-        Assert.Equal(new XRange(0, 15), range);
+        Assert.Equal(new XRange(0, 35), range);
+    }
+
+    [Fact]
+    public void UsesCustomFutureSpaceSeconds()
+    {
+        var viewport = new SteppedXAxisViewport();
+
+        var range = viewport.Update(0, 5, visibleRange: null, sampleRatePerSecond: 10, recentXSpacing: 0.1, futureSpaceSeconds: 5);
+
+        Assert.Equal(new XRange(0, 10), range);
     }
 
     [Fact]
     public void DoesNotExpandBeforeNewestReachesThreshold()
     {
         var viewport = new SteppedXAxisViewport();
-        var initial = viewport.Update(0, 5, sampleRatePerSecond: 10, recentXSpacing: 0.1);
+        var initial = viewport.Update(0, 5, visibleRange: null, sampleRatePerSecond: 10, recentXSpacing: 0.1);
 
-        var range = viewport.Update(0, 12, sampleRatePerSecond: 10, recentXSpacing: 0.1);
+        var range = viewport.Update(0, 31.4, initial, sampleRatePerSecond: 10, recentXSpacing: 0.1);
 
         Assert.Equal(initial, range);
     }
@@ -30,21 +40,38 @@ public sealed class SteppedXAxisViewportTests
     public void ExpandsWhenNewestReachesThreshold()
     {
         var viewport = new SteppedXAxisViewport();
-        viewport.Update(0, 5, sampleRatePerSecond: 10, recentXSpacing: 0.1);
+        var initial = viewport.Update(0, 5, visibleRange: null, sampleRatePerSecond: 10, recentXSpacing: 0.1);
 
-        var range = viewport.Update(0, 14, sampleRatePerSecond: 10, recentXSpacing: 0.1);
+        var range = viewport.Update(0, 31.5, initial, sampleRatePerSecond: 10, recentXSpacing: 0.1);
 
-        Assert.Equal(new XRange(0, 24), range);
+        Assert.Equal(new XRange(0, 61.5), range);
     }
 
     [Fact]
-    public void UsesSampleRateAndRecentXSpacingForFutureSpan()
+    public void PanPreservesVisibleWidthWhenZoomedIntoRetainedRange()
     {
         var viewport = new SteppedXAxisViewport();
 
-        var range = viewport.Update(100, 110, sampleRatePerSecond: 5, recentXSpacing: 2);
+        var range = viewport.Update(
+            oldestX: 0,
+            newestX: 112,
+            visibleRange: new XRange(20, 120),
+            sampleRatePerSecond: 1,
+            recentXSpacing: 1);
 
-        Assert.Equal(new XRange(100, 210), range);
+        Assert.Equal(100, range?.Width);
+        Assert.Equal(new XRange(42, 142), range);
+    }
+
+    [Fact]
+    public void ResetClearsCurrentTarget()
+    {
+        var viewport = new SteppedXAxisViewport();
+        viewport.Update(0, 5, visibleRange: null, sampleRatePerSecond: 10, recentXSpacing: 0.1);
+
+        viewport.Reset();
+
+        Assert.Null(viewport.Current);
     }
 
     [Fact]
@@ -52,7 +79,7 @@ public sealed class SteppedXAxisViewportTests
     {
         var viewport = new SteppedXAxisViewport();
 
-        var range = viewport.Update(5, 5, sampleRatePerSecond: 0, recentXSpacing: 0);
+        var range = viewport.Update(5, 5, visibleRange: null, sampleRatePerSecond: 0, recentXSpacing: 0);
 
         Assert.Equal(new XRange(5, 6), range);
     }
