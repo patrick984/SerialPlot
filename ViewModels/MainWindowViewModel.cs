@@ -22,10 +22,13 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private readonly CancellationTokenSource _cancellation = new();
     private readonly object _gate = new();
     private readonly Stopwatch _plotUpdateClock = Stopwatch.StartNew();
+    private readonly UserPreferencesService _preferencesService;
     private CsvSchema? _schema;
     private ColumnState[] _columnStates = [];
     private Task? _readerTask;
+    private Task? _preferencesLoadTask;
     private bool _updatingChannelSelection;
+    private bool _loadingPreferences;
 
     private static readonly TimeSpan MinimumPlotUpdateInterval = TimeSpan.FromMilliseconds(33);
 
@@ -49,26 +52,42 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private bool _hasError;
 
     [ObservableProperty]
-    private bool _followNewest = true;
+    private bool _autoScaleX = true;
+
+    [ObservableProperty]
+    private bool _autoScaleLeftY = true;
+
+    [ObservableProperty]
+    private bool _autoScaleRightY = true;
+
+    [ObservableProperty]
+    private XAutoscaleMode _xAutoscaleMode = XAutoscaleMode.ContinuousFollowNewest;
 
     public PlotBuffer Buffer { get; }
     public RawCsvBuffer RawCsv { get; }
     public int BufferCapacity => _config.BufferSize;
+    public IReadOnlyList<XAutoscaleMode> XAutoscaleModes { get; } = Enum.GetValues<XAutoscaleMode>();
 
     public MainWindowViewModel()
-        : this(AppConfig.Defaults(), new TextReaderLineSource(TextReader.Null))
+        : this(AppConfig.Defaults(), new TextReaderLineSource(TextReader.Null), new UserPreferencesService())
     {
     }
 
     public MainWindowViewModel(AppConfig config)
-        : this(config, CsvLineSourceFactory.Create(config))
+        : this(config, CsvLineSourceFactory.Create(config), new UserPreferencesService())
     {
     }
 
     public MainWindowViewModel(AppConfig config, ICsvLineSource source)
+        : this(config, source, new UserPreferencesService())
+    {
+    }
+
+    public MainWindowViewModel(AppConfig config, ICsvLineSource source, UserPreferencesService preferencesService)
     {
         _config = config;
         _source = source;
+        _preferencesService = preferencesService;
         _parser = new CsvStreamParser(config.TimestampUnit);
         Buffer = new PlotBuffer(config.BufferSize);
         RawCsv = new RawCsvBuffer(config.BufferSize + 1);
@@ -77,6 +96,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     public void Start()
     {
         Status = $"Waiting for CSV header from {DescribeSource(_config.Source)}...";
+        _preferencesLoadTask ??= LoadPreferencesAsync();
         _readerTask ??= Task.Run(ReadLoopAsync);
     }
 
@@ -168,7 +188,9 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     [RelayCommand]
     public void Autoscale()
     {
-        FollowNewest = true;
+        AutoScaleX = true;
+        AutoScaleLeftY = true;
+        AutoScaleRightY = true;
         RaisePlotDataChanged(PlotDataChangeKind.Autoscale);
     }
 
@@ -186,6 +208,49 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     partial void OnSelectedXChannelChanged(ChannelViewModel? value)
     {
         RaisePlotDataChanged(PlotDataChangeKind.XChannelChanged);
+    }
+
+    partial void OnAutoScaleXChanged(bool value) => RaisePlotDataChanged(PlotDataChangeKind.Autoscale);
+
+    partial void OnAutoScaleLeftYChanged(bool value) => RaisePlotDataChanged(PlotDataChangeKind.Autoscale);
+
+    partial void OnAutoScaleRightYChanged(bool value) => RaisePlotDataChanged(PlotDataChangeKind.Autoscale);
+
+    partial void OnXAutoscaleModeChanged(XAutoscaleMode value)
+    {
+        RaisePlotDataChanged(PlotDataChangeKind.Autoscale);
+        if (!_loadingPreferences)
+        {
+            _ = SavePreferencesAsync(value);
+        }
+    }
+
+    private async Task LoadPreferencesAsync()
+    {
+        var preferences = await _preferencesService.LoadAsync().ConfigureAwait(false);
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            try
+            {
+                _loadingPreferences = true;
+                XAutoscaleMode = preferences.XAutoscaleMode;
+            }
+            finally
+            {
+                _loadingPreferences = false;
+            }
+        });
+    }
+
+    private async Task SavePreferencesAsync(XAutoscaleMode mode)
+    {
+        try
+        {
+            await _preferencesService.SaveAsync(new UserPreferences(mode)).ConfigureAwait(false);
+        }
+        catch
+        {
+        }
     }
 
     private async Task ReadLoopAsync()
@@ -340,6 +405,12 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _cancellation.Cancel();
+        if (_preferencesLoadTask is not null)
+        {
+            try { await _preferencesLoadTask.ConfigureAwait(false); }
+            catch { }
+        }
+
         if (_readerTask is not null)
         {
             try { await _readerTask.ConfigureAwait(false); }

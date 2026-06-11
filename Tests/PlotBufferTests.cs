@@ -213,6 +213,48 @@ public sealed class PlotBufferTests
     }
 
     [Fact]
+    public void FixedXyRingBufferReportsOldestNewestAndRecentSpacingAfterWrap()
+    {
+        var ring = new FixedXyRingBuffer(3);
+        ring.Append(1, 10);
+        ring.Append(2, 20);
+        ring.Append(4, 40);
+        ring.Append(7, 70);
+
+        Assert.True(ring.TryGetOldestAndNewestX(out var oldestX, out var newestX));
+        Assert.Equal(2, oldestX);
+        Assert.Equal(7, newestX);
+        Assert.True(ring.TryGetRecentXSpacing(out var spacing));
+        Assert.Equal(3, spacing);
+    }
+
+    [Fact]
+    public void FixedXyRingBufferFindsNearestPointByPixelDistance()
+    {
+        var ring = new FixedXyRingBuffer(3);
+        ring.Append(1, 10);
+        ring.Append(2, 20);
+        ring.Append(3, 30);
+
+        var nearest = ring.FindNearest(21, 199, (x, y) => (x * 10, y * 10), maxDistance: 15);
+
+        Assert.NotNull(nearest);
+        Assert.Equal(2, nearest.Value.X);
+        Assert.Equal(20, nearest.Value.Y);
+    }
+
+    [Fact]
+    public void FixedXyRingBufferFindNearestReturnsNullOutsideHitRadius()
+    {
+        var ring = new FixedXyRingBuffer(3);
+        ring.Append(1, 10);
+
+        var nearest = ring.FindNearest(100, 100, (x, y) => (x, y), maxDistance: 5);
+
+        Assert.Null(nearest);
+    }
+
+    [Fact]
     public void RawCsvBufferKeepsExactLines()
     {
         var buffer = new RawCsvBuffer(2);

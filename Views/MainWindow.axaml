@@ -25,14 +25,39 @@
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="Pause" Command="{Binding TogglePauseCommand}"/>
         <Button Content="Clear" Command="{Binding ClearCommand}"/>
-        <Button Content="Autoscale" Command="{Binding AutoscaleCommand}"/>
+        <CheckBox Content="X Auto" IsChecked="{Binding AutoScaleX}" VerticalAlignment="Center"/>
+        <ComboBox ItemsSource="{Binding XAutoscaleModes}"
+                  SelectedItem="{Binding XAutoscaleMode}"
+                  Width="180"/>
+        <CheckBox Content="Y Left Auto" IsChecked="{Binding AutoScaleLeftY}" VerticalAlignment="Center"/>
+        <CheckBox Content="Y Right Auto" IsChecked="{Binding AutoScaleRightY}" VerticalAlignment="Center"/>
         <Button Content="Export PNG" Click="ExportPngClicked"/>
         <Button Content="Save CSV" Click="SaveCsvClicked"/>
         <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Margin="12,0,0,0"/>
       </StackPanel>
     </Border>
 
-    <sp:AvaPlot x:Name="Plot" Grid.Row="1" Grid.Column="0"/>
+    <Grid Grid.Row="1" Grid.Column="0">
+      <sp:AvaPlot x:Name="Plot"/>
+      <Canvas x:Name="CursorOverlay" IsHitTestVisible="False">
+        <Ellipse x:Name="CursorMarker"
+                 Width="10"
+                 Height="10"
+                 Fill="#FFFFFFFF"
+                 Stroke="#222222"
+                 StrokeThickness="1.5"
+                 IsVisible="False"/>
+        <Border x:Name="CursorLabel"
+                Background="#E6222222"
+                CornerRadius="4"
+                Padding="6,4"
+                IsVisible="False">
+          <TextBlock x:Name="CursorLabelText"
+                     Foreground="White"
+                     FontSize="12"/>
+        </Border>
+      </Canvas>
+    </Grid>
 
     <Border Grid.Row="1" Grid.Column="1" BorderBrush="#D0D0D0" BorderThickness="1,0,0,0" Padding="12">
       <DockPanel>

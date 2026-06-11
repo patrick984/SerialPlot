@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using ScottPlot;
 using ScottPlot.Plottables;
+using SerialPlot.Models;
 using SerialPlot.Services;
 using SerialPlot.ViewModels;
 
@@ -16,8 +19,14 @@ namespace SerialPlot.Views;
 public partial class MainWindow : Window
 {
     private readonly Dictionary<SeriesKey, SeriesState> _series = [];
+    private readonly SteppedXAxisViewport _steppedXAxisViewport = new();
     private MainWindowViewModel? _attachedViewModel;
     private EventHandler<PlotDataChangedEventArgs>? _plotDataChangedHandler;
+    private long _sampleRateVersion;
+    private DateTime _sampleRateTime = DateTime.UtcNow;
+    private double _sampleRatePerSecond;
+    private XAutoscaleMode _lastXAutoscaleMode = XAutoscaleMode.ContinuousFollowNewest;
+    private bool _lastAutoScaleX = true;
 
     public MainWindow()
     {
@@ -33,6 +42,8 @@ public partial class MainWindow : Window
         };
         Plot.PointerWheelChanged += PlotPointerInput;
         Plot.PointerPressed += PlotPointerInput;
+        Plot.PointerMoved += PlotPointerMoved;
+        Plot.PointerExited += (_, _) => HideCursorOverlay();
     }
 
     private void AttachViewModel()
@@ -73,6 +84,8 @@ public partial class MainWindow : Window
         Plot.Plot.YLabel("Left");
         Plot.Plot.Axes.Right.Label.Text = "Right";
         Plot.Plot.Axes.Right.IsVisible = true;
+        _steppedXAxisViewport.Reset();
+        HideCursorOverlay();
         Plot.Refresh();
     }
 
@@ -90,10 +103,8 @@ public partial class MainWindow : Window
         }
 
         Plot.Plot.ShowLegend();
-        if (vm.FollowNewest)
-        {
-            Plot.Plot.Axes.AutoScale();
-        }
+        UpdateSampleRate(args.BufferVersion);
+        ApplyAutoscale(vm, args);
 
         Plot.Refresh();
     }
@@ -142,6 +153,7 @@ public partial class MainWindow : Window
 
         return new SeriesState(
             selection.Channel,
+            selection.Side,
             buffer,
             () =>
             {
@@ -196,6 +208,124 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ApplyAutoscale(MainWindowViewModel vm, PlotDataChangedEventArgs args)
+    {
+        if (args.Kind is PlotDataChangeKind.Clear or PlotDataChangeKind.SelectionChanged or PlotDataChangeKind.XChannelChanged
+            || vm.XAutoscaleMode != _lastXAutoscaleMode
+            || (vm.AutoScaleX && !_lastAutoScaleX))
+        {
+            _steppedXAxisViewport.Reset();
+        }
+
+        _lastXAutoscaleMode = vm.XAutoscaleMode;
+        _lastAutoScaleX = vm.AutoScaleX;
+
+        if (vm.AutoScaleX && TryGetXExtent(out var minX, out var maxX))
+        {
+            if (vm.XAutoscaleMode is XAutoscaleMode.SteppedExpansion)
+            {
+                var spacing = TryGetRecentXSpacing(out var value) ? value : double.NaN;
+                var range = _steppedXAxisViewport.Update(minX, maxX, _sampleRatePerSecond, spacing);
+                if (range is { } xRange)
+                {
+                    Plot.Plot.Axes.SetLimitsX(xRange.Minimum, xRange.Maximum);
+                }
+            }
+            else
+            {
+                Plot.Plot.Axes.SetLimitsX(minX, maxX);
+            }
+        }
+
+        if (vm.AutoScaleLeftY && TryGetYExtent(SeriesSide.Left, out var minLeftY, out var maxLeftY))
+        {
+            Plot.Plot.Axes.SetLimitsY(minLeftY, maxLeftY, Plot.Plot.Axes.Left);
+        }
+
+        if (vm.AutoScaleRightY && TryGetYExtent(SeriesSide.Right, out var minRightY, out var maxRightY))
+        {
+            Plot.Plot.Axes.SetLimitsY(minRightY, maxRightY, Plot.Plot.Axes.Right);
+        }
+    }
+
+    private void UpdateSampleRate(long bufferVersion)
+    {
+        var now = DateTime.UtcNow;
+        var deltaVersion = bufferVersion - _sampleRateVersion;
+        var elapsed = (now - _sampleRateTime).TotalSeconds;
+        if (deltaVersion > 0 && elapsed > 0)
+        {
+            _sampleRatePerSecond = deltaVersion / elapsed;
+        }
+
+        _sampleRateVersion = bufferVersion;
+        _sampleRateTime = now;
+    }
+
+    private bool TryGetXExtent(out double min, out double max)
+    {
+        min = double.PositiveInfinity;
+        max = double.NegativeInfinity;
+        foreach (var series in _series.Values)
+        {
+            if (series.Buffer.TryGetOldestAndNewestX(out var oldestX, out var newestX))
+            {
+                min = Math.Min(min, Math.Min(oldestX, newestX));
+                max = Math.Max(max, Math.Max(oldestX, newestX));
+            }
+        }
+
+        return NormalizeRange(ref min, ref max);
+    }
+
+    private bool TryGetYExtent(SeriesSide side, out double min, out double max)
+    {
+        min = double.PositiveInfinity;
+        max = double.NegativeInfinity;
+        foreach (var series in _series.Values.Where(x => x.Side == side))
+        {
+            foreach (var point in series.Buffer.EnumeratePoints())
+            {
+                min = Math.Min(min, point.Y);
+                max = Math.Max(max, point.Y);
+            }
+        }
+
+        return NormalizeRange(ref min, ref max);
+    }
+
+    private bool TryGetRecentXSpacing(out double spacing)
+    {
+        spacing = double.NaN;
+        foreach (var series in _series.Values)
+        {
+            if (series.Buffer.TryGetRecentXSpacing(out spacing))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool NormalizeRange(ref double min, ref double max)
+    {
+        if (!double.IsFinite(min) || !double.IsFinite(max))
+        {
+            return false;
+        }
+
+        if (max > min)
+        {
+            return true;
+        }
+
+        var padding = Math.Max(Math.Abs(min) * 0.01, 1);
+        min -= padding;
+        max += padding;
+        return true;
+    }
+
     private async void ExportPngClicked(object? sender, RoutedEventArgs e)
     {
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
@@ -237,8 +367,107 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainWindowViewModel vm)
         {
-            vm.FollowNewest = false;
+            DisableAutoscaleForPointerLocation(vm, e.GetPosition(Plot));
         }
+    }
+
+    private void DisableAutoscaleForPointerLocation(MainWindowViewModel vm, Point position)
+    {
+        var width = Plot.Bounds.Width;
+        var height = Plot.Bounds.Height;
+        const double axisPanelSize = 70;
+
+        var onBottomAxis = position.Y >= height - axisPanelSize;
+        var onLeftAxis = position.X <= axisPanelSize;
+        var onRightAxis = position.X >= width - axisPanelSize;
+
+        if (onBottomAxis && !onLeftAxis && !onRightAxis)
+        {
+            vm.AutoScaleX = false;
+            return;
+        }
+
+        if (onLeftAxis && !onBottomAxis)
+        {
+            vm.AutoScaleLeftY = false;
+            return;
+        }
+
+        if (onRightAxis && !onBottomAxis)
+        {
+            vm.AutoScaleRightY = false;
+            return;
+        }
+
+        vm.AutoScaleX = false;
+        vm.AutoScaleLeftY = false;
+        vm.AutoScaleRightY = false;
+    }
+
+    private void PlotPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_series.Count == 0)
+        {
+            HideCursorOverlay();
+            return;
+        }
+
+        var position = e.GetPosition(Plot);
+        var displayScale = Plot.DisplayScale == 0 ? 1 : Plot.DisplayScale;
+        var mousePixelX = position.X * displayScale;
+        var mousePixelY = position.Y * displayScale;
+
+        CursorHit? nearest = null;
+        foreach (var series in _series.Values)
+        {
+            var yAxis = series.Side == SeriesSide.Left ? Plot.Plot.Axes.Left : Plot.Plot.Axes.Right;
+            var point = series.Buffer.FindNearest(
+                mousePixelX,
+                mousePixelY,
+                (x, y) =>
+                {
+                    var pixel = Plot.Plot.GetPixel(new Coordinates(x, y), Plot.Plot.Axes.Bottom, yAxis);
+                    return (pixel.X, pixel.Y);
+                },
+                maxDistance: 30 * displayScale);
+
+            if (point is { } value && (nearest is null || value.DistanceSquared < nearest.Value.DistanceSquared))
+            {
+                nearest = new CursorHit(series.Channel.Name, value.X, value.Y, value.DistanceSquared, yAxis);
+            }
+        }
+
+        if (nearest is not { } hit)
+        {
+            HideCursorOverlay();
+            return;
+        }
+
+        var markerPixel = Plot.Plot.GetPixel(new Coordinates(hit.X, hit.Y), Plot.Plot.Axes.Bottom, hit.YAxis);
+        ShowCursorOverlay(markerPixel.X / displayScale, markerPixel.Y / displayScale, hit);
+    }
+
+    private void ShowCursorOverlay(double x, double y, CursorHit hit)
+    {
+        CursorMarker.IsVisible = true;
+        CursorLabel.IsVisible = true;
+        CursorLabelText.Text = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{hit.SeriesName}: X={hit.X:G6}, Y={hit.Y:G6}");
+
+        Canvas.SetLeft(CursorMarker, x - (CursorMarker.Width / 2));
+        Canvas.SetTop(CursorMarker, y - (CursorMarker.Height / 2));
+
+        var labelLeft = Math.Min(Math.Max(0, x + 12), Math.Max(0, CursorOverlay.Bounds.Width - 220));
+        var labelTop = Math.Max(0, y - 32);
+        Canvas.SetLeft(CursorLabel, labelLeft);
+        Canvas.SetTop(CursorLabel, labelTop);
+    }
+
+    private void HideCursorOverlay()
+    {
+        CursorMarker.IsVisible = false;
+        CursorLabel.IsVisible = false;
     }
 
     private enum SeriesSide
@@ -251,8 +480,11 @@ public partial class MainWindow : Window
 
     private readonly record struct SeriesSelection(ChannelViewModel Channel, SeriesSide Side);
 
+    private readonly record struct CursorHit(string SeriesName, double X, double Y, double DistanceSquared, IYAxis YAxis);
+
     private sealed class SeriesState(
         ChannelViewModel channel,
+        SeriesSide side,
         FixedXyRingBuffer buffer,
         Action remove,
         SignalXY older,
@@ -261,6 +493,7 @@ public partial class MainWindow : Window
         double[] tempYs)
     {
         public ChannelViewModel Channel { get; } = channel;
+        public SeriesSide Side { get; } = side;
         public FixedXyRingBuffer Buffer { get; } = buffer;
         public Action Remove { get; } = remove;
         public double[] TempXs { get; } = tempXs;
