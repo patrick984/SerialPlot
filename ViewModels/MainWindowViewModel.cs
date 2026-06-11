@@ -70,6 +70,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     public RawCsvBuffer RawCsv { get; }
     public int BufferCapacity => _config.BufferSize;
     public IReadOnlyList<XAutoscaleMode> XAutoscaleModes { get; } = Enum.GetValues<XAutoscaleMode>();
+    public string PauseButtonText => IsPaused ? "Resume" : "Pause";
 
     public MainWindowViewModel()
         : this(AppConfig.Defaults(), new TextReaderLineSource(TextReader.Null), new UserPreferencesService())
@@ -186,6 +187,8 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         IsPaused = !IsPaused;
         Status = IsPaused ? "Plot paused; acquisition continues." : "Streaming.";
     }
+
+    partial void OnIsPausedChanged(bool value) => OnPropertyChanged(nameof(PauseButtonText));
 
     [RelayCommand]
     public void Clear()
