@@ -1,4 +1,5 @@
 using System;
+using SerialPlot.Models;
 
 namespace SerialPlot.Services;
 
@@ -21,6 +22,7 @@ public sealed class SteppedXAxisViewport
     public XRange? Update(
         double oldestX,
         double newestX,
+        XAutoscaleMode mode,
         XRange? visibleRange,
         double sampleRatePerSecond,
         double recentXSpacing,
@@ -39,20 +41,21 @@ public sealed class SteppedXAxisViewport
         var retainedRange = CreateDataRange(oldestX, newestX);
         var futureSpan = EstimateFutureSpan(sampleRatePerSecond, recentXSpacing, futureSpaceSeconds);
         var current = visibleRange is { Width: > 0 } range ? range : _target;
-        if (current is not { Width: > 0 } visible || newestX < current.Value.Minimum || oldestX > current.Value.Maximum)
+        if (current is not { Width: > 0 } visible)
         {
-            _target = CreateExpansionRange(retainedRange, futureSpan);
+            _target = CreateInitialRange(retainedRange, futureSpan);
             return _target;
         }
 
-        if (newestX < visible.Minimum + (visible.Width * ExpansionThreshold))
+        var retainedRangeOutsideVisibleRange = newestX < visible.Minimum || oldestX > visible.Maximum;
+        if (!retainedRangeOutsideVisibleRange && newestX < visible.Minimum + (visible.Width * ExpansionThreshold))
         {
             return _target;
         }
 
-        _target = CoversFullRetainedRange(visible, retainedRange)
-            ? CreateExpansionRange(retainedRange, futureSpan)
-            : CreatePanRange(visible, newestX, futureSpan);
+        _target = mode is XAutoscaleMode.SteppedPan
+            ? CreatePanRange(visible, newestX, futureSpan)
+            : CreateExpansionRange(retainedRange, futureSpan);
 
         return _target;
     }
@@ -63,17 +66,13 @@ public sealed class SteppedXAxisViewport
     private static XRange CreateExpansionRange(XRange retainedRange, double futureSpan)
         => new(retainedRange.Minimum, retainedRange.Maximum + futureSpan);
 
+    private static XRange CreateInitialRange(XRange retainedRange, double futureSpan)
+        => CreateExpansionRange(retainedRange, futureSpan);
+
     private static XRange CreatePanRange(XRange visibleRange, double newestX, double futureSpan)
     {
         var maximum = newestX + futureSpan;
         return new XRange(maximum - visibleRange.Width, maximum);
-    }
-
-    private static bool CoversFullRetainedRange(XRange visibleRange, XRange retainedRange)
-    {
-        const double tolerance = 1e-9;
-        return visibleRange.Minimum <= retainedRange.Minimum + tolerance
-            && visibleRange.Maximum >= retainedRange.Maximum - tolerance;
     }
 
     private static double EstimateFutureSpan(double sampleRatePerSecond, double recentXSpacing, int futureSpaceSeconds)

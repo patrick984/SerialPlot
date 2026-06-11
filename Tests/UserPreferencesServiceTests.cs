@@ -76,6 +76,19 @@ public sealed class UserPreferencesServiceTests
     }
 
     [Fact]
+    public async Task SteppedPanModeLoadsAndSaves()
+    {
+        var path = CreateTempPath();
+        var service = new UserPreferencesService(path);
+
+        await service.SaveAsync(new UserPreferences(XAutoscaleMode.SteppedPan, 60));
+        var preferences = await service.LoadAsync();
+
+        Assert.Equal(XAutoscaleMode.SteppedPan, preferences.XAutoscaleMode);
+        Assert.Equal(60, preferences.SteppedFutureSpaceSeconds);
+    }
+
+    [Fact]
     public async Task SaveWritesSelectedModeAndFutureSpace()
     {
         var path = CreateTempPath();

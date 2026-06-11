@@ -4,4 +4,5 @@ public enum XAutoscaleMode
 {
     ContinuousFollowNewest,
     SteppedExpansion,
+    SteppedPan,
 }

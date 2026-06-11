@@ -26,9 +26,15 @@
         <Button Content="{Binding PauseButtonText}" Command="{Binding TogglePauseCommand}"/>
         <Button Content="Clear" Command="{Binding ClearCommand}"/>
         <CheckBox Content="X Auto" IsChecked="{Binding AutoScaleX}" VerticalAlignment="Center"/>
-        <ComboBox ItemsSource="{Binding XAutoscaleModes}"
-                  SelectedItem="{Binding XAutoscaleMode}"
-                  Width="180"/>
+        <ComboBox ItemsSource="{Binding XAutoscaleModeOptions}"
+                  SelectedItem="{Binding SelectedXAutoscaleModeOption}"
+                  Width="180">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:XAutoscaleModeOption">
+              <TextBlock Text="{Binding Label}"/>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
         <TextBlock Text="Future" VerticalAlignment="Center"/>
         <NumericUpDown Value="{Binding SteppedFutureSpaceSeconds}"
                        Minimum="1"

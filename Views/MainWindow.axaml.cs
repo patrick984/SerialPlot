@@ -239,13 +239,14 @@ public partial class MainWindow : Window
 
         if (vm.AutoScaleX && TryGetXExtent(out var minX, out var maxX))
         {
-            if (vm.XAutoscaleMode is XAutoscaleMode.SteppedExpansion)
+            if (vm.XAutoscaleMode is XAutoscaleMode.SteppedExpansion or XAutoscaleMode.SteppedPan)
             {
                 var spacing = TryGetRecentXSpacing(out var value) ? value : double.NaN;
                 XRange? visibleRange = TryGetVisibleXRange(out var currentRange) ? currentRange : null;
                 var targetRange = _steppedXAxisViewport.Update(
                     minX,
                     maxX,
+                    vm.XAutoscaleMode,
                     visibleRange,
                     _sampleRatePerSecond,
                     spacing,

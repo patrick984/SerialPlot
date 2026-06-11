@@ -76,17 +76,17 @@
 
 4.4 The plot shall retain accumulated data up to the configured circular buffer point count.
 
-4.5 The X axis shall support selectable autoscale modes, including continuous follow-newest and stepped.
+4.5 The X axis shall support selectable autoscale modes, including continuous follow-newest, stepped expand, and stepped pan.
 
 4.6 Continuous follow-newest mode shall autoscale the X axis to the newest buffer window.
 
-4.7 Stepped mode shall use the persisted future-space duration to reserve expected incoming X space ahead of the newest data.
+4.7 Stepped expand and stepped pan modes shall use the persisted future-space duration to reserve expected incoming X space ahead of the newest data.
 
-4.8 In stepped mode, the X range shall update when the newest visible data reaches about 90% of the current visible X range.
+4.8 In stepped expand and stepped pan modes, the X range shall update when the newest visible data reaches about 90% of the current visible X range.
 
-4.9 Stepped mode shall expand the visible X range when the full retained X range is visible, and shall pan automatically when the user is viewing less than the full retained X range.
+4.9 Stepped expand mode shall expand the visible X range from the retained minimum X to the newest X plus future-space room.
 
-4.9.1 Stepped pan shall preserve the current X zoom width and shift the view right so the newest data has future-space room.
+4.9.1 Stepped pan mode shall preserve the current X zoom width and shift the view right so the newest data has future-space room.
 
 4.9.2 Stepped X transitions shall animate over about 300 ms with an ease-out curve.
 

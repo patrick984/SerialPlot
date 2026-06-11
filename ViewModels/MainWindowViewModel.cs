@@ -16,6 +16,13 @@ namespace SerialPlot.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 {
+    private static readonly XAutoscaleModeOption[] XAutoscaleModeOptionValues =
+    [
+        new(XAutoscaleMode.ContinuousFollowNewest, "Continuous Follow"),
+        new(XAutoscaleMode.SteppedExpansion, "Stepped Expand"),
+        new(XAutoscaleMode.SteppedPan, "Stepped Pan"),
+    ];
+
     private readonly AppConfig _config;
     private readonly ICsvLineSource _source;
     private readonly CsvStreamParser _parser;
@@ -64,12 +71,15 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private XAutoscaleMode _xAutoscaleMode = XAutoscaleMode.ContinuousFollowNewest;
 
     [ObservableProperty]
+    private XAutoscaleModeOption _selectedXAutoscaleModeOption = XAutoscaleModeOptionValues[0];
+
+    [ObservableProperty]
     private int _steppedFutureSpaceSeconds = UserPreferences.DefaultSteppedFutureSpaceSeconds;
 
     public PlotBuffer Buffer { get; }
     public RawCsvBuffer RawCsv { get; }
     public int BufferCapacity => _config.BufferSize;
-    public IReadOnlyList<XAutoscaleMode> XAutoscaleModes { get; } = Enum.GetValues<XAutoscaleMode>();
+    public IReadOnlyList<XAutoscaleModeOption> XAutoscaleModeOptions { get; } = XAutoscaleModeOptionValues;
     public string PauseButtonText => IsPaused ? "Resume" : "Pause";
 
     public MainWindowViewModel()
@@ -234,10 +244,24 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     partial void OnXAutoscaleModeChanged(XAutoscaleMode value)
     {
+        var option = GetXAutoscaleModeOption(value);
+        if (SelectedXAutoscaleModeOption != option)
+        {
+            SelectedXAutoscaleModeOption = option;
+        }
+
         RaisePlotDataChanged(PlotDataChangeKind.Autoscale);
         if (!_loadingPreferences)
         {
             _ = SavePreferencesAsync();
+        }
+    }
+
+    partial void OnSelectedXAutoscaleModeOptionChanged(XAutoscaleModeOption value)
+    {
+        if (XAutoscaleMode != value.Mode)
+        {
+            XAutoscaleMode = value.Mode;
         }
     }
 
@@ -285,6 +309,9 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         {
         }
     }
+
+    private static XAutoscaleModeOption GetXAutoscaleModeOption(XAutoscaleMode mode)
+        => XAutoscaleModeOptionValues.FirstOrDefault(x => x.Mode == mode) ?? XAutoscaleModeOptionValues[0];
 
     private async Task ReadLoopAsync()
     {
@@ -463,6 +490,8 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         _ => "stream",
     };
 }
+
+public sealed record XAutoscaleModeOption(XAutoscaleMode Mode, string Label);
 
 public sealed class PlotDataChangedEventArgs(PlotDataChangeKind kind, long bufferVersion) : EventArgs
 {
