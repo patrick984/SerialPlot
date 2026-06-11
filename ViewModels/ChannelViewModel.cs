@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using SerialPlot.Models;
 
@@ -19,6 +20,12 @@ public partial class ChannelViewModel(string name, int index) : ViewModelBase
 
     [ObservableProperty]
     private bool _isSelectedRight;
+
+    [ObservableProperty]
+    private IBrush? _leftTraceBrush;
+
+    [ObservableProperty]
+    private IBrush? _rightTraceBrush;
 
     public void Apply(ColumnState state)
     {

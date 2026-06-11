@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:SerialPlot.ViewModels"
+        xmlns:views="using:SerialPlot.Views"
         xmlns:sp="using:ScottPlot.Avalonia"
         x:Class="SerialPlot.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -10,6 +11,10 @@
         MinWidth="900"
         MinHeight="560"
         Title="SerialPlot">
+  <Window.Resources>
+    <views:TraceBrushBindingConverter x:Key="TraceBrushBindingConverter"/>
+  </Window.Resources>
+
   <Window.Styles>
     <Style Selector="Button">
       <Setter Property="MinWidth" Value="78"/>
@@ -62,6 +67,8 @@
                  IsVisible="False"/>
         <Border x:Name="CursorLabel"
                 Background="#E6222222"
+                BorderBrush="#FF222222"
+                BorderThickness="2"
                 CornerRadius="4"
                 Padding="6,4"
                 IsVisible="False">
@@ -94,8 +101,18 @@
               <DataTemplate x:DataType="vm:ChannelViewModel">
                 <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,4">
                   <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"/>
-                  <CheckBox Grid.Column="1" Content="L" IsChecked="{Binding IsSelectedLeft}" IsEnabled="{Binding CanBeY}"/>
-                  <CheckBox Grid.Column="2" Content="R" IsChecked="{Binding IsSelectedRight}" IsEnabled="{Binding CanBeY}"/>
+                  <CheckBox Grid.Column="1"
+                            Content="L"
+                            IsChecked="{Binding IsSelectedLeft}"
+                            IsEnabled="{Binding CanBeY}"
+                            BorderBrush="{Binding LeftTraceBrush, Converter={StaticResource TraceBrushBindingConverter}}"
+                            Foreground="{Binding LeftTraceBrush, Converter={StaticResource TraceBrushBindingConverter}}"/>
+                  <CheckBox Grid.Column="2"
+                            Content="R"
+                            IsChecked="{Binding IsSelectedRight}"
+                            IsEnabled="{Binding CanBeY}"
+                            BorderBrush="{Binding RightTraceBrush, Converter={StaticResource TraceBrushBindingConverter}}"
+                            Foreground="{Binding RightTraceBrush, Converter={StaticResource TraceBrushBindingConverter}}"/>
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

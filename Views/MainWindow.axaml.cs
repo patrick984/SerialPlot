@@ -7,6 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using ScottPlot;
@@ -19,6 +20,8 @@ namespace SerialPlot.Views;
 
 public partial class MainWindow : Window
 {
+    private const float ZoomedMarkerSize = 5;
+
     private readonly Dictionary<SeriesKey, SeriesState> _series = [];
     private readonly SteppedXAxisViewport _steppedXAxisViewport = new();
     private readonly XRangeAnimator _xRangeAnimator = new();
@@ -50,6 +53,7 @@ public partial class MainWindow : Window
         Plot.PointerPressed += PlotPointerInput;
         Plot.PointerMoved += PlotPointerMoved;
         Plot.PointerExited += (_, _) => HideCursorOverlay();
+        Plot.Plot.RenderManager.AxisLimitsChanged += (_, _) => ScheduleMarkerVisibilityRefresh();
 
         _xRangeAnimationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _xRangeAnimationTimer.Tick += (_, _) => TickXRangeAnimation();
@@ -116,6 +120,7 @@ public partial class MainWindow : Window
         Plot.Plot.ShowLegend();
         UpdateSampleRate(args.BufferVersion);
         ApplyAutoscale(vm, args);
+        UpdateMarkerVisibility();
         if (args.Kind is PlotDataChangeKind.Clear)
         {
             HideCursorOverlay();
@@ -154,10 +159,13 @@ public partial class MainWindow : Window
     {
         var buffer = new FixedXyRingBuffer(vm.BufferCapacity);
         var color = Plot.Plot.Add.GetNextColor();
+        var traceBrush = ToBrush(color);
         var older = Plot.Plot.Add.SignalXY(buffer.Xs, buffer.Ys, color);
         var newer = Plot.Plot.Add.SignalXY(buffer.Xs, buffer.Ys, color);
         older.LegendText = selection.Channel.Name;
         newer.LegendText = string.Empty;
+        ConfigureSignalMarkers(older, color);
+        ConfigureSignalMarkers(newer, color);
 
         var yAxis = selection.Side == SeriesSide.Left ? Plot.Plot.Axes.Left : Plot.Plot.Axes.Right;
         older.Axes.YAxis = yAxis;
@@ -165,15 +173,18 @@ public partial class MainWindow : Window
 
         UpdateSignalRange(older, null);
         UpdateSignalRange(newer, null);
+        SetTraceBrush(selection.Channel, selection.Side, traceBrush);
 
         return new SeriesState(
             selection.Channel,
             selection.Side,
+            traceBrush,
             buffer,
             () =>
             {
                 Plot.Plot.Remove(older);
                 Plot.Plot.Remove(newer);
+                SetTraceBrush(selection.Channel, selection.Side, null);
             },
             older,
             newer,
@@ -224,6 +235,30 @@ public partial class MainWindow : Window
             signal.Data.MaximumIndex = value.Maximum;
         }
     }
+
+    private static void ConfigureSignalMarkers(SignalXY signal, ScottPlot.Color color)
+    {
+        signal.MarkerColor = color;
+        signal.MarkerFillColor = color;
+        signal.MarkerLineColor = color;
+        signal.MarkerLineWidth = 1;
+        signal.MarkerSize = 0;
+    }
+
+    private static void SetTraceBrush(ChannelViewModel channel, SeriesSide side, IBrush? brush)
+    {
+        if (side is SeriesSide.Left)
+        {
+            channel.LeftTraceBrush = brush;
+        }
+        else
+        {
+            channel.RightTraceBrush = brush;
+        }
+    }
+
+    private static SolidColorBrush ToBrush(ScottPlot.Color color)
+        => new(Avalonia.Media.Color.Parse(color.ToHex()));
 
     private void ApplyAutoscale(MainWindowViewModel vm, PlotDataChangedEventArgs args)
     {
@@ -426,6 +461,34 @@ public partial class MainWindow : Window
         return double.IsFinite(range.Minimum) && double.IsFinite(range.Maximum) && range.Maximum > range.Minimum;
     }
 
+    private bool UpdateMarkerVisibility()
+    {
+        if (!TryGetVisibleXRange(out var visibleXRange))
+        {
+            return false;
+        }
+
+        var changed = false;
+        foreach (var series in _series.Values)
+        {
+            changed |= series.UpdateMarkerVisibility(visibleXRange);
+        }
+
+        return changed;
+    }
+
+    private void ScheduleMarkerVisibilityRefresh()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (UpdateMarkerVisibility())
+            {
+                Plot.Refresh();
+            }
+        });
+    }
+
+
     private async void ExportPngClicked(object? sender, RoutedEventArgs e)
     {
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
@@ -571,7 +634,7 @@ public partial class MainWindow : Window
 
             if (point is { } value && (nearest is null || value.DistanceSquared < nearest.Value.DistanceSquared))
             {
-                nearest = new CursorHit(series.Channel.Name, value.X, value.Y, value.DistanceSquared, yAxis);
+                nearest = new CursorHit(series.Channel.Name, value.X, value.Y, value.DistanceSquared, yAxis, series.TraceBrush);
             }
         }
 
@@ -596,6 +659,8 @@ public partial class MainWindow : Window
     {
         CursorMarker.IsVisible = true;
         CursorLabel.IsVisible = true;
+        CursorMarker.Stroke = hit.TraceBrush;
+        CursorLabel.BorderBrush = hit.TraceBrush;
         CursorLabelText.Text = string.Create(
             CultureInfo.InvariantCulture,
             $"{hit.SeriesName}: X={hit.X:G6}, Y={hit.Y:G6}");
@@ -625,11 +690,12 @@ public partial class MainWindow : Window
 
     private readonly record struct SeriesSelection(ChannelViewModel Channel, SeriesSide Side);
 
-    private readonly record struct CursorHit(string SeriesName, double X, double Y, double DistanceSquared, IYAxis YAxis);
+    private readonly record struct CursorHit(string SeriesName, double X, double Y, double DistanceSquared, IYAxis YAxis, IBrush TraceBrush);
 
     private sealed class SeriesState(
         ChannelViewModel channel,
         SeriesSide side,
+        IBrush traceBrush,
         FixedXyRingBuffer buffer,
         Action remove,
         SignalXY older,
@@ -639,12 +705,14 @@ public partial class MainWindow : Window
     {
         public ChannelViewModel Channel { get; } = channel;
         public SeriesSide Side { get; } = side;
+        public IBrush TraceBrush { get; } = traceBrush;
         public FixedXyRingBuffer Buffer { get; } = buffer;
         public Action Remove { get; } = remove;
         public double[] TempXs { get; } = tempXs;
         public double[] TempYs { get; } = tempYs;
         public HoverPointIndex HoverIndex { get; } = new();
         public long LastBufferVersion { get; set; } = -1;
+        private bool MarkersVisible { get; set; }
         private long HoverCacheBufferVersion { get; set; } = -1;
         private XRange? HoverCacheVisibleXRange { get; set; }
 
@@ -671,6 +739,21 @@ public partial class MainWindow : Window
             HoverIndex.Rebuild(Buffer.EnumeratePoints(), visibleXRange);
             HoverCacheBufferVersion = LastBufferVersion;
             HoverCacheVisibleXRange = visibleXRange;
+        }
+
+        public bool UpdateMarkerVisibility(XRange visibleXRange)
+        {
+            var shouldShow = VisiblePointMarkerPolicy.ShouldShowMarkers(Buffer.EnumeratePoints(), visibleXRange);
+            if (MarkersVisible == shouldShow)
+            {
+                return false;
+            }
+
+            MarkersVisible = shouldShow;
+            var markerSize = shouldShow ? ZoomedMarkerSize : 0;
+            older.MarkerSize = markerSize;
+            newer.MarkerSize = markerSize;
+            return true;
         }
     }
 }
