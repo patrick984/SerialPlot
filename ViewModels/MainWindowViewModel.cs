@@ -100,7 +100,17 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     {
         Status = $"Waiting for CSV header from {DescribeSource(_config.Source)}...";
         _preferencesLoadTask ??= LoadPreferencesAsync();
-        _readerTask ??= Task.Run(ReadLoopAsync);
+        _readerTask ??= Task.Run(ReadLoopAfterPreferencesAsync);
+    }
+
+    private async Task ReadLoopAfterPreferencesAsync()
+    {
+        if (_preferencesLoadTask is not null)
+        {
+            await _preferencesLoadTask.ConfigureAwait(false);
+        }
+
+        await ReadLoopAsync().ConfigureAwait(false);
     }
 
     public (double[] Xs, double[] Ys) GetSeries(ChannelViewModel yChannel)
