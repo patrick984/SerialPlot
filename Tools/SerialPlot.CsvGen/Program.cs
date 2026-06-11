@@ -66,6 +66,7 @@ public static class Program
         try
         {
             using var client = await listener.AcceptTcpClientAsync(cancellationToken).ConfigureAwait(false);
+            client.NoDelay = true;
             await using var stream = client.GetStream();
             await using var writer = new StreamWriter(stream) { AutoFlush = true };
             await new CsvGenerator(options).WriteAsync(writer, cancellationToken).ConfigureAwait(false);

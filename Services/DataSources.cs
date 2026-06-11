@@ -162,7 +162,10 @@ public sealed class TcpLineSource(string host, int port) : ICsvLineSource
 
     public async IAsyncEnumerable<string> ReadLinesAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        _client = new TcpClient();
+        _client = new TcpClient
+        {
+            NoDelay = true,
+        };
         await _client.ConnectAsync(host, port, cancellationToken).ConfigureAwait(false);
         await using var stream = _client.GetStream();
         using var reader = new StreamReader(stream, Encoding.ASCII);
