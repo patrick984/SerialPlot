@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Threading;
 using SerialPlot.Models;
 using SerialPlot.Services;
 using SerialPlot.ViewModels;
@@ -85,11 +87,71 @@ public sealed class MainWindowViewModelTests
         Assert.Contains(traces, x => ReferenceEquals(x.Source, sourceB) && x.Channel == channelB && x.Side == TraceAxisSide.Right);
     }
 
+    [Fact]
+    public void AppendThrottlingPreservesDirtySources()
+    {
+        var sourceA = new InputSourceViewModel(SourceConfig("a"), new TextReaderLineSource(TextReader.Null));
+        var sourceB = new InputSourceViewModel(SourceConfig("b"), new TextReaderLineSource(TextReader.Null));
+        var vm = CreateViewModel(sourceA, sourceB);
+        var events = new System.Collections.Generic.List<PlotDataChangedEventArgs>();
+        vm.PlotDataChanged += (_, args) => events.Add(args);
+
+        Thread.Sleep(40);
+        RaiseSourceAppend(vm, sourceA, 1);
+        RaiseSourceAppend(vm, sourceB, 1);
+        Thread.Sleep(40);
+        RaiseSourceAppend(vm, sourceA, 2);
+
+        Assert.Equal(2, events.Count);
+        Assert.Contains(sourceA, events[0].DirtySourceVersions.Keys);
+        Assert.DoesNotContain(sourceB, events[0].DirtySourceVersions.Keys);
+        Assert.Contains(sourceA, events[1].DirtySourceVersions.Keys);
+        Assert.Contains(sourceB, events[1].DirtySourceVersions.Keys);
+        Assert.Equal(1, events[1].DirtySourceVersions[sourceB]);
+    }
+
+    [Fact]
+    public void PausedAppendIsRetainedUntilResume()
+    {
+        var source = new InputSourceViewModel(SourceConfig("a"), new TextReaderLineSource(TextReader.Null));
+        var vm = CreateViewModel(source);
+        var events = new System.Collections.Generic.List<PlotDataChangedEventArgs>();
+        vm.PlotDataChanged += (_, args) => events.Add(args);
+
+        Thread.Sleep(40);
+        vm.IsPaused = true;
+        RaiseSourceAppend(vm, source, 1);
+        Thread.Sleep(40);
+        vm.IsPaused = false;
+
+        var append = Assert.Single(events);
+        Assert.Contains(source, append.DirtySourceVersions.Keys);
+        Assert.Equal(1, append.DirtySourceVersions[source]);
+    }
+
     private static MainWindowViewModel CreateViewModel()
         => new(
             AppConfig.Defaults(),
             new TextReaderLineSource(TextReader.Null),
             new UserPreferencesService(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "preferences.json")));
+
+    private static MainWindowViewModel CreateViewModel(params InputSourceViewModel[] sources)
+        => new(
+            AppConfig.Defaults(),
+            sources,
+            new UserPreferencesService(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "preferences.json")));
+
+    private static void RaiseSourceAppend(MainWindowViewModel vm, InputSourceViewModel source, long version)
+    {
+        var method = typeof(MainWindowViewModel)
+            .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Single(x =>
+                x.Name == "RaisePlotDataChanged"
+                && x.GetParameters() is [{ ParameterType: var parameterType }]
+                && parameterType == typeof(SourceDataChangedEventArgs));
+
+        method.Invoke(vm, [new SourceDataChangedEventArgs(source, PlotDataChangeKind.Append, version)]);
+    }
 
     private static InputSourceConfig SourceConfig(string name)
         => new(

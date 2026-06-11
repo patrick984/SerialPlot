@@ -23,10 +23,13 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
     private CsvSchema? _schema;
     private ColumnState[] _columnStates = [];
     private Task? _readerTask;
-    private bool _uiNotificationQueued;
-    private PlotDataChangeKind _pendingUiChangeKind = PlotDataChangeKind.Append;
-    private long _pendingUiBufferVersion;
+    private bool _appendNotificationQueued;
+    private bool _appendNotificationPending;
+    private bool _eligibilityUpdatePending;
+    private long _pendingAppendBufferVersion;
     private bool _updatingChannelSelection;
+
+    private static readonly TimeSpan MinimumAppendNotificationInterval = TimeSpan.FromMilliseconds(33);
 
     public event EventHandler<SourceDataChangedEventArgs>? DataChanged;
 
@@ -157,22 +160,26 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
                         _columnStates = schema.Headers.Select(x => new ColumnState(x)).ToArray();
                     }
 
-                    QueueUiNotification(PlotDataChangeKind.Rebuild);
+                    QueueImmediateUiNotification(PlotDataChangeKind.Rebuild);
                     continue;
                 }
 
                 var parsed = _parser.ParseRow(_schema, line);
+                var eligibilityChanged = false;
                 lock (_gate)
                 {
                     RawCsv.Add(parsed.RawLine);
                     Buffer.Add(parsed.Cells);
                     for (var i = 0; i < parsed.Cells.Count; i++)
                     {
+                        var canBeX = _columnStates[i].CanBeX;
+                        var canBeY = _columnStates[i].CanBeY;
                         _columnStates[i].Observe(parsed.Cells[i]);
+                        eligibilityChanged |= canBeX != _columnStates[i].CanBeX || canBeY != _columnStates[i].CanBeY;
                     }
                 }
 
-                QueueUiNotification(PlotDataChangeKind.Append);
+                QueueAppendNotification(eligibilityChanged);
             }
 
             if (!_cancellation.IsCancellationRequested)
@@ -275,7 +282,26 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
         OnPropertyChanged(nameof(SelectedRightChannels));
     }
 
-    private void QueueUiNotification(PlotDataChangeKind kind)
+    private void QueueImmediateUiNotification(PlotDataChangeKind kind)
+    {
+        long version;
+        lock (_gate)
+        {
+            version = Buffer.Version;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (kind == PlotDataChangeKind.Rebuild && _schema is { } schema && Channels.Count == 0)
+            {
+                InitializeChannels(schema);
+            }
+
+            RaiseDataChanged(kind, version);
+        });
+    }
+
+    private void QueueAppendNotification(bool eligibilityChanged)
     {
         long version;
         lock (_gate)
@@ -285,48 +311,66 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
 
         lock (_uiNotificationGate)
         {
-            _pendingUiChangeKind = CombinePendingChange(_pendingUiChangeKind, kind);
-            _pendingUiBufferVersion = version;
-            if (_uiNotificationQueued)
+            _appendNotificationPending = true;
+            _eligibilityUpdatePending |= eligibilityChanged;
+            _pendingAppendBufferVersion = version;
+            if (_appendNotificationQueued)
             {
                 return;
             }
 
-            _uiNotificationQueued = true;
+            _appendNotificationQueued = true;
         }
 
-        Dispatcher.UIThread.Post(ProcessQueuedUiNotification);
+        _ = ProcessAppendNotificationAfterDelayAsync();
     }
 
-    private void ProcessQueuedUiNotification()
+    private async Task ProcessAppendNotificationAfterDelayAsync()
     {
-        PlotDataChangeKind kind;
+        try
+        {
+            await Task.Delay(MinimumAppendNotificationInterval, _cancellation.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(ProcessQueuedAppendNotification);
+    }
+
+    private void ProcessQueuedAppendNotification()
+    {
         long version;
+        bool updateEligibility;
         lock (_uiNotificationGate)
         {
-            kind = _pendingUiChangeKind;
-            version = _pendingUiBufferVersion;
-            _pendingUiChangeKind = PlotDataChangeKind.Append;
-            _uiNotificationQueued = false;
+            version = _pendingAppendBufferVersion;
+            updateEligibility = _eligibilityUpdatePending;
+            _appendNotificationPending = false;
+            _eligibilityUpdatePending = false;
+            _appendNotificationQueued = false;
         }
 
         if (_schema is { } schema && Channels.Count == 0)
         {
             InitializeChannels(schema);
-            kind = PlotDataChangeKind.Rebuild;
+            RaiseDataChanged(PlotDataChangeKind.Rebuild, version);
+            return;
         }
-        else if (kind == PlotDataChangeKind.Append)
+
+        if (updateEligibility)
         {
             UpdateEligibility();
         }
 
-        RaiseDataChanged(kind, version);
-    }
+        if (_appendNotificationPending)
+        {
+            QueueAppendNotification(eligibilityChanged: false);
+        }
 
-    private static PlotDataChangeKind CombinePendingChange(PlotDataChangeKind current, PlotDataChangeKind next)
-        => current == PlotDataChangeKind.Rebuild || next == PlotDataChangeKind.Rebuild
-            ? PlotDataChangeKind.Rebuild
-            : next;
+        RaiseDataChanged(PlotDataChangeKind.Append, version);
+    }
 
     private void RaiseDataChanged(PlotDataChangeKind kind)
         => DataChanged?.Invoke(this, new SourceDataChangedEventArgs(this, kind, Buffer.Version));

@@ -27,6 +27,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private readonly CancellationTokenSource _cancellation = new();
     private readonly Stopwatch _plotUpdateClock = Stopwatch.StartNew();
     private readonly UserPreferencesService _preferencesService;
+    private readonly Dictionary<InputSourceViewModel, long> _dirtySourceVersions = [];
     private Task? _preferencesLoadTask;
     private bool _loadingPreferences;
     private bool _updatingSelectedSource;
@@ -187,7 +188,14 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         Status = IsPaused ? "Plot paused; acquisition continues." : "Streaming.";
     }
 
-    partial void OnIsPausedChanged(bool value) => OnPropertyChanged(nameof(PauseButtonText));
+    partial void OnIsPausedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PauseButtonText));
+        if (!value)
+        {
+            RaiseDirtyAppendIfAllowed();
+        }
+    }
 
     [RelayCommand]
     public void Clear()
@@ -340,14 +348,28 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     private void RaisePlotDataChanged(PlotDataChangeKind kind)
     {
+        if (kind is PlotDataChangeKind.Clear)
+        {
+            _dirtySourceVersions.Clear();
+        }
+
         PlotDataChanged?.Invoke(this, new PlotDataChangedEventArgs(kind, Sources.Sum(x => x.Buffer.Version)));
     }
 
     private void RaisePlotDataChanged(SourceDataChangedEventArgs sourceArgs)
     {
-        if (sourceArgs.Kind == PlotDataChangeKind.Append && (IsPaused || !ShouldUpdatePlot()))
+        if (sourceArgs.Kind == PlotDataChangeKind.Append)
         {
-            return;
+            _dirtySourceVersions[sourceArgs.Source] = sourceArgs.BufferVersion;
+            if (IsPaused)
+            {
+                return;
+            }
+
+            if (!ShouldUpdatePlot())
+            {
+                return;
+            }
         }
 
         if (sourceArgs.Kind is PlotDataChangeKind.SelectionChanged or PlotDataChangeKind.XChannelChanged or PlotDataChangeKind.Rebuild)
@@ -374,7 +396,39 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         Status = BuildStatus();
         HasError = Sources.Any(x => x.HasError);
         ErrorMessage = string.Join(Environment.NewLine, Sources.Where(x => x.HasError).Select(x => $"{x.DisplayName}: {x.ErrorMessage}"));
+
+        if (sourceArgs.Kind == PlotDataChangeKind.Append)
+        {
+            RaiseDirtyAppend();
+            return;
+        }
+
+        _dirtySourceVersions.Remove(sourceArgs.Source);
         PlotDataChanged?.Invoke(this, new PlotDataChangedEventArgs(sourceArgs.Source, sourceArgs.Kind, sourceArgs.BufferVersion, Sources.Sum(x => x.Buffer.Version)));
+    }
+
+    private void RaiseDirtyAppendIfAllowed()
+    {
+        if (_dirtySourceVersions.Count == 0 || IsPaused || !ShouldUpdatePlot())
+        {
+            return;
+        }
+
+        RaiseDirtyAppend();
+    }
+
+    private void RaiseDirtyAppend()
+    {
+        var dirtySources = new Dictionary<InputSourceViewModel, long>(_dirtySourceVersions);
+        foreach (var source in dirtySources.Keys)
+        {
+            _dirtySourceVersions.Remove(source);
+        }
+
+        PlotDataChanged?.Invoke(this, new PlotDataChangedEventArgs(
+            PlotDataChangeKind.Append,
+            dirtySources,
+            Sources.Sum(x => x.Buffer.Version)));
     }
 
     public async ValueTask DisposeAsync()
@@ -481,10 +535,34 @@ public sealed class PlotDataChangedEventArgs(PlotDataChangeKind kind, long buffe
         SourceBufferVersion = sourceBufferVersion;
     }
 
+    public PlotDataChangedEventArgs(PlotDataChangeKind kind, IReadOnlyDictionary<InputSourceViewModel, long> dirtySourceVersions, long bufferVersion)
+        : this(kind, bufferVersion)
+    {
+        DirtySourceVersions = dirtySourceVersions;
+    }
+
     public InputSourceViewModel? Source { get; }
     public PlotDataChangeKind Kind { get; } = kind;
     public long SourceBufferVersion { get; } = bufferVersion;
+    public IReadOnlyDictionary<InputSourceViewModel, long> DirtySourceVersions { get; } = new Dictionary<InputSourceViewModel, long>();
     public long BufferVersion { get; } = bufferVersion;
+
+    public bool TryGetSourceVersion(InputSourceViewModel source, out long version)
+    {
+        if (DirtySourceVersions.TryGetValue(source, out version))
+        {
+            return true;
+        }
+
+        if (ReferenceEquals(Source, source))
+        {
+            version = SourceBufferVersion;
+            return true;
+        }
+
+        version = source.Buffer.Version;
+        return Kind != PlotDataChangeKind.Append;
+    }
 }
 
 public enum PlotDataChangeKind

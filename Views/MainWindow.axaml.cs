@@ -201,13 +201,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (args.Kind is PlotDataChangeKind.Append && args.Source is not null && !ReferenceEquals(args.Source, series.Source))
+        if (args.Kind is PlotDataChangeKind.Append && !args.TryGetSourceVersion(series.Source, out _))
         {
             return;
         }
 
-        var sourceBufferVersion = ReferenceEquals(args.Source, series.Source)
-            ? args.SourceBufferVersion
+        var sourceBufferVersion = args.TryGetSourceVersion(series.Source, out var sourceVersion)
+            ? sourceVersion
             : series.Source.Buffer.Version;
 
         var mustRebuild = args.Kind is PlotDataChangeKind.SelectionChanged or PlotDataChangeKind.XChannelChanged or PlotDataChangeKind.Rebuild
