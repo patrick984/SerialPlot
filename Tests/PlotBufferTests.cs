@@ -213,6 +213,21 @@ public sealed class PlotBufferTests
     }
 
     [Fact]
+    public void FixedXyRingBufferDropsNonAscendingXValues()
+    {
+        var ring = new FixedXyRingBuffer(4);
+        ring.Append(0, 10);
+        ring.Append(1, 20);
+        ring.Append(0.5, 30);
+        ring.Append(1, 40);
+        ring.Append(2, 50);
+
+        Assert.Equal(3, ring.Count);
+        Assert.Equal([0, 1, 2], ring.Xs.Take(ring.Count).ToArray());
+        Assert.Equal([10, 20, 50], ring.Ys.Take(ring.Count).ToArray());
+    }
+
+    [Fact]
     public void FixedXyRingBufferReportsOldestNewestAndRecentSpacingAfterWrap()
     {
         var ring = new FixedXyRingBuffer(3);

@@ -27,6 +27,15 @@ public sealed class FixedXyRingBuffer
             return;
         }
 
+        if (Count > 0)
+        {
+            var newestIndex = (_nextIndex - 1 + Capacity) % Capacity;
+            if (x <= Xs[newestIndex])
+            {
+                return;
+            }
+        }
+
         Xs[_nextIndex] = x;
         Ys[_nextIndex] = y;
 
