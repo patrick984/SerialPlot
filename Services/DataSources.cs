@@ -75,7 +75,8 @@ public sealed class TextReaderLineSource(TextReader reader) : ICsvLineSource
 public sealed class TestCsvLineSource : ICsvLineSource
 {
     private const double RateHz = 1000d;
-    private readonly Random _random = new(7);
+    private static int NextSeed = Environment.TickCount;
+    private readonly Random _random = new(Interlocked.Increment(ref NextSeed));
     private double _walk;
 
     public async IAsyncEnumerable<string> ReadLinesAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
