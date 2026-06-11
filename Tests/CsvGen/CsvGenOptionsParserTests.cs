@@ -50,4 +50,12 @@ public sealed class CsvGenOptionsParserTests
             "--duration", "1",
         ]));
     }
+
+    [Fact]
+    public void ParsesTcpListenPort()
+    {
+        var options = CsvGenOptionsParser.Parse(["--tcp-listen", "5001"]);
+
+        Assert.Equal(5001, options.TcpListenPort);
+    }
 }

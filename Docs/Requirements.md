@@ -176,6 +176,10 @@
 
 5.15 Removing a source at runtime shall stop and dispose that source without stopping other sources.
 
+5.16 The application shall provide a test source type that generates live synthesized CSV data for exercising multi-source workflows without external hardware.
+
+5.17 Test sources shall be addable from the runtime source management UI.
+
 ## 6. CSV Format
 
 6.1 The first row shall be the CSV header.
@@ -233,3 +237,9 @@
 8.2 If multiple sources are active, saving captured CSV data shall write one CSV file per source into a selected folder.
 
 8.3 Multi-source CSV export shall preserve each source's raw incoming rows exactly as received.
+
+## 9. Test Data Generator
+
+9.1 The `serialplot-csvgen` utility shall support writing synthesized CSV data to standard output.
+
+9.2 The `serialplot-csvgen` utility shall support listening on a localhost TCP port and streaming synthesized CSV data to a client.

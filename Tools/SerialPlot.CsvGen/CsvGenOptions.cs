@@ -13,7 +13,8 @@ public sealed record CsvGenOptions(
     int? Seed,
     char Delimiter,
     int Precision,
-    bool Realtime)
+    bool Realtime,
+    int? TcpListenPort)
 {
     public static CsvGenOptions Defaults() => new(
         RateHz: 100d,
@@ -28,7 +29,8 @@ public sealed record CsvGenOptions(
         Seed: null,
         Delimiter: ',',
         Precision: 6,
-        Realtime: true);
+        Realtime: true,
+        TcpListenPort: null);
 
     public long? EffectiveSampleCount()
     {
@@ -58,6 +60,7 @@ public static class CsvGenOptionsParser
         var delimiter = defaults.Delimiter;
         var precision = defaults.Precision;
         var realtime = defaults.Realtime;
+        var tcpListenPort = defaults.TcpListenPort;
         var channelSpecs = new List<string>();
 
         for (var i = 0; i < args.Length; i++)
@@ -98,6 +101,9 @@ public static class CsvGenOptionsParser
                 case "--precision":
                     precision = ParsePositiveInt(value, name);
                     break;
+                case "--tcp-listen":
+                    tcpListenPort = ParsePort(value, name);
+                    break;
                 default:
                     throw new CsvGenConfigurationException($"Unknown option {name}.");
             }
@@ -119,7 +125,7 @@ public static class CsvGenOptionsParser
             throw new CsvGenConfigurationException($"Duplicate channel name '{duplicates.Key}'.");
         }
 
-        return new CsvGenOptions(rate, channels, samples, duration, seed, delimiter, precision, realtime);
+        return new CsvGenOptions(rate, channels, samples, duration, seed, delimiter, precision, realtime, tcpListenPort);
     }
 
     private static (string Name, string? Value) SplitOption(string arg)
@@ -174,4 +180,9 @@ public static class CsvGenOptionsParser
         => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : throw new CsvGenConfigurationException($"{name} must be an integer.");
+
+    private static int ParsePort(string value, string name)
+        => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) && parsed is >= 1 and <= 65535
+            ? parsed
+            : throw new CsvGenConfigurationException($"{name} must be between 1 and 65535.");
 }

@@ -290,6 +290,7 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
         SourceType.Serial => "serial port",
         SourceType.Tcp => "TCP socket",
         SourceType.Udp => "UDP socket",
+        SourceType.Test => "test generator",
         _ => "stream",
     };
 }

@@ -163,6 +163,7 @@ public static class CliConfigParser
             SourceType.Udp when config.Port is null => "UDP source requires a port.",
             SourceType.Udp when config.UdpMessage is null => "UDP source requires a request message.",
             SourceType.Udp => null,
+            SourceType.Test => null,
             _ => "Unsupported source type.",
         };
     }
@@ -215,6 +216,7 @@ public static class CliConfigParser
         "serial" => SourceType.Serial,
         "tcp" => SourceType.Tcp,
         "udp" => SourceType.Udp,
+        "test" => SourceType.Test,
         _ => null,
     };
 
@@ -361,6 +363,7 @@ public static class CliConfigParser
             SourceType.Udp when config.Port is null => $"Source '{config.Name}' UDP source requires a port.",
             SourceType.Udp when config.UdpMessage is null => $"Source '{config.Name}' UDP source requires a request message.",
             SourceType.Udp => null,
+            SourceType.Test => null,
             _ => $"Source '{config.Name}' has an unsupported source type.",
         };
     }

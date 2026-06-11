@@ -24,6 +24,7 @@ public static class CsvLineSourceFactory
         SourceType.Serial => new SerialLineSource(config.SerialPort!, config.Baud!.Value),
         SourceType.Tcp => new TcpLineSource(config.Host!, config.Port!.Value),
         SourceType.Udp => new UdpLineSource(config.Host!, config.Port!.Value, config.UdpMessage ?? string.Empty),
+        SourceType.Test => new TestCsvLineSource(),
         _ => throw new InvalidOperationException("Unsupported source type."),
     };
 
@@ -33,6 +34,7 @@ public static class CsvLineSourceFactory
         SourceType.Serial => new SerialLineSource(config.SerialPort!, config.Baud!.Value),
         SourceType.Tcp => new TcpLineSource(config.Host!, config.Port!.Value),
         SourceType.Udp => new UdpLineSource(config.Host!, config.Port!.Value, config.UdpMessage ?? string.Empty),
+        SourceType.Test => new TestCsvLineSource(),
         _ => throw new InvalidOperationException("Unsupported source type."),
     };
 }
@@ -64,6 +66,41 @@ public sealed class TextReaderLineSource(TextReader reader) : ICsvLineSource
             }
 
             yield return line;
+        }
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+
+public sealed class TestCsvLineSource : ICsvLineSource
+{
+    private const double RateHz = 1000d;
+    private readonly Random _random = new(7);
+    private double _walk;
+
+    public async IAsyncEnumerable<string> ReadLinesAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        yield return "time,sine,sawtooth,noise,random";
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        for (long sample = 0; !cancellationToken.IsCancellationRequested; sample++)
+        {
+            var time = sample / RateHz;
+            var sine = Math.Sin(2d * Math.PI * time);
+            var sawtooth = (2d * (time - Math.Floor(time))) - 1d;
+            var noise = (2d * _random.NextDouble()) - 1d;
+            _walk += 0.05d * ((2d * _random.NextDouble()) - 1d);
+
+            yield return string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"{time:G6},{sine:G6},{sawtooth:G6},{noise:G6},{_walk:G6}");
+
+            var target = TimeSpan.FromSeconds((sample + 1) / RateHz);
+            var delay = target - stopwatch.Elapsed;
+            if (delay > TimeSpan.Zero)
+            {
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 

@@ -9,6 +9,7 @@ public enum SourceType
     Serial,
     Tcp,
     Udp,
+    Test,
 }
 
 public enum TimestampUnit
