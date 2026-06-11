@@ -81,6 +81,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     public int BufferCapacity => _config.BufferSize;
     public IReadOnlyList<XAutoscaleModeOption> XAutoscaleModeOptions { get; } = XAutoscaleModeOptionValues;
     public string PauseButtonText => IsPaused ? "Resume" : "Pause";
+    public bool IsSteppedExpansionSelected => XAutoscaleMode is XAutoscaleMode.SteppedExpansion;
 
     public MainWindowViewModel()
         : this(AppConfig.Defaults(), new TextReaderLineSource(TextReader.Null), new UserPreferencesService())
@@ -250,6 +251,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             SelectedXAutoscaleModeOption = option;
         }
 
+        OnPropertyChanged(nameof(IsSteppedExpansionSelected));
         RaisePlotDataChanged(PlotDataChangeKind.Autoscale);
         if (!_loadingPreferences)
         {

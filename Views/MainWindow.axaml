@@ -35,8 +35,9 @@
             </DataTemplate>
           </ComboBox.ItemTemplate>
         </ComboBox>
-        <TextBlock Text="Future" VerticalAlignment="Center"/>
+        <TextBlock Text="Future" VerticalAlignment="Center" IsEnabled="{Binding IsSteppedExpansionSelected}"/>
         <NumericUpDown Value="{Binding SteppedFutureSpaceSeconds}"
+                       IsEnabled="{Binding IsSteppedExpansionSelected}"
                        Minimum="1"
                        Maximum="300"
                        Increment="1"

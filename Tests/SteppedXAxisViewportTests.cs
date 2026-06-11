@@ -78,11 +78,11 @@ public sealed class SteppedXAxisViewportTests
             recentXSpacing: 1);
 
         Assert.Equal(100, range?.Width);
-        Assert.Equal(new XRange(42, 142), range);
+        Assert.Equal(new XRange(70, 170), range);
     }
 
     [Fact]
-    public void PanModePreservesVisibleWidthWhenRetainedRangeMovesOutsideView()
+    public void PanModePansFarEnoughWhenRetainedRangeMovesOutsideView()
     {
         var viewport = new SteppedXAxisViewport();
 
@@ -94,7 +94,31 @@ public sealed class SteppedXAxisViewportTests
             sampleRatePerSecond: 1,
             recentXSpacing: 1);
 
-        Assert.Equal(new XRange(230, 330), range);
+        Assert.Equal(100, range?.Width);
+        Assert.Equal(new XRange(210, 310), range);
+    }
+
+    [Fact]
+    public void PanModeDoesNotRetargetFromAnimationIntermediateRange()
+    {
+        var viewport = new SteppedXAxisViewport();
+        var first = viewport.Update(
+            oldestX: 0,
+            newestX: 112,
+            mode: XAutoscaleMode.SteppedPan,
+            visibleRange: new XRange(20, 120),
+            sampleRatePerSecond: 1,
+            recentXSpacing: 1);
+
+        var second = viewport.Update(
+            oldestX: 0,
+            newestX: 113,
+            mode: XAutoscaleMode.SteppedPan,
+            visibleRange: new XRange(40, 140),
+            sampleRatePerSecond: 1,
+            recentXSpacing: 1);
+
+        Assert.Equal(first, second);
     }
 
     [Fact]

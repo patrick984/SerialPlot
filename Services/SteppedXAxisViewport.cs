@@ -12,6 +12,7 @@ public sealed class SteppedXAxisViewport
 {
     public const int DefaultFutureSpaceSeconds = UserPreferences.DefaultSteppedFutureSpaceSeconds;
     public const double ExpansionThreshold = 0.9;
+    public const double PanStepFraction = 0.5;
 
     private XRange? _target;
 
@@ -40,7 +41,7 @@ public sealed class SteppedXAxisViewport
 
         var retainedRange = CreateDataRange(oldestX, newestX);
         var futureSpan = EstimateFutureSpan(sampleRatePerSecond, recentXSpacing, futureSpaceSeconds);
-        var current = visibleRange is { Width: > 0 } range ? range : _target;
+        var current = _target is { Width: > 0 } target ? target : visibleRange;
         if (current is not { Width: > 0 } visible)
         {
             _target = CreateInitialRange(retainedRange, futureSpan);
@@ -54,7 +55,7 @@ public sealed class SteppedXAxisViewport
         }
 
         _target = mode is XAutoscaleMode.SteppedPan
-            ? CreatePanRange(visible, newestX, futureSpan)
+            ? CreatePanRange(visible, newestX)
             : CreateExpansionRange(retainedRange, futureSpan);
 
         return _target;
@@ -69,10 +70,12 @@ public sealed class SteppedXAxisViewport
     private static XRange CreateInitialRange(XRange retainedRange, double futureSpan)
         => CreateExpansionRange(retainedRange, futureSpan);
 
-    private static XRange CreatePanRange(XRange visibleRange, double newestX, double futureSpan)
+    private static XRange CreatePanRange(XRange visibleRange, double newestX)
     {
-        var maximum = newestX + futureSpan;
-        return new XRange(maximum - visibleRange.Width, maximum);
+        var width = visibleRange.Width;
+        var minimumShift = newestX - (visibleRange.Minimum + (width * ExpansionThreshold));
+        var shift = Math.Max(width * PanStepFraction, minimumShift);
+        return new XRange(visibleRange.Minimum + shift, visibleRange.Maximum + shift);
     }
 
     private static double EstimateFutureSpan(double sampleRatePerSecond, double recentXSpacing, int futureSpaceSeconds)

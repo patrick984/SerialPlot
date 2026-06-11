@@ -42,7 +42,7 @@
 
 2.9 The application shall persist and restore the user's last selected X autoscale mode and stepped future-space duration across launches.
 
-2.10 The stepped X future-space duration shall be user-configurable, default to 30 seconds, and accept values from 1 to 300 seconds.
+2.10 The stepped expand future-space duration shall be user-configurable, default to 30 seconds, and accept values from 1 to 300 seconds.
 
 ## 3. Main Window
 
@@ -80,13 +80,13 @@
 
 4.6 Continuous follow-newest mode shall autoscale the X axis to the newest buffer window.
 
-4.7 Stepped expand and stepped pan modes shall use the persisted future-space duration to reserve expected incoming X space ahead of the newest data.
+4.7 Stepped expand mode shall use the persisted future-space duration to reserve expected incoming X space ahead of the newest data.
 
 4.8 In stepped expand and stepped pan modes, the X range shall update when the newest visible data reaches about 90% of the current visible X range.
 
 4.9 Stepped expand mode shall expand the visible X range from the retained minimum X to the newest X plus future-space room.
 
-4.9.1 Stepped pan mode shall preserve the current X zoom width and shift the view right so the newest data has future-space room.
+4.9.1 Stepped pan mode shall preserve the current X zoom width and shift the view right by about half the visible X width when triggered.
 
 4.9.2 Stepped X transitions shall animate over about 300 ms with an ease-out curve.
 
