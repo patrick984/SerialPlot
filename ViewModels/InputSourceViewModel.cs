@@ -19,9 +19,13 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
     private readonly CsvStreamParser _parser;
     private readonly CancellationTokenSource _cancellation = new();
     private readonly object _gate = new();
+    private readonly object _uiNotificationGate = new();
     private CsvSchema? _schema;
     private ColumnState[] _columnStates = [];
     private Task? _readerTask;
+    private bool _uiNotificationQueued;
+    private PlotDataChangeKind _pendingUiChangeKind = PlotDataChangeKind.Append;
+    private long _pendingUiBufferVersion;
     private bool _updatingChannelSelection;
 
     public event EventHandler<SourceDataChangedEventArgs>? DataChanged;
@@ -70,7 +74,11 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
 
     public void Start()
     {
-        _readerTask ??= Task.Run(ReadLoopAsync);
+        _readerTask ??= Task.Factory.StartNew(
+            ReadLoopAsync,
+            _cancellation.Token,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap();
     }
 
     public void Clear()
@@ -146,9 +154,10 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
                     lock (_gate)
                     {
                         RawCsv.Add(line);
+                        _columnStates = schema.Headers.Select(x => new ColumnState(x)).ToArray();
                     }
 
-                    await Dispatcher.UIThread.InvokeAsync(() => InitializeChannels(schema));
+                    QueueUiNotification(PlotDataChangeKind.Rebuild);
                     continue;
                 }
 
@@ -163,11 +172,7 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
                     }
                 }
 
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    UpdateEligibility();
-                    RaiseDataChanged(PlotDataChangeKind.Append);
-                });
+                QueueUiNotification(PlotDataChangeKind.Append);
             }
 
             if (!_cancellation.IsCancellationRequested)
@@ -199,7 +204,6 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
     private void InitializeChannels(CsvSchema schema)
     {
         Channels.Clear();
-        _columnStates = schema.Headers.Select(x => new ColumnState(x)).ToArray();
         for (var i = 0; i < schema.Headers.Count; i++)
         {
             var channel = new ChannelViewModel(schema.Headers[i], i);
@@ -224,7 +228,7 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
         }
 
         Status = "Header read; waiting for selectable data.";
-        RaiseDataChanged(PlotDataChangeKind.Rebuild);
+        UpdateEligibility();
     }
 
     private void ApplyExclusiveAxisSelection(ChannelViewModel channel, string? propertyName)
@@ -254,9 +258,12 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
 
     private void UpdateEligibility()
     {
-        for (var i = 0; i < Channels.Count; i++)
+        lock (_gate)
         {
-            Channels[i].Apply(_columnStates[i]);
+            for (var i = 0; i < Channels.Count; i++)
+            {
+                Channels[i].Apply(_columnStates[i]);
+            }
         }
 
         if (SelectedXChannel is null)
@@ -268,8 +275,64 @@ public partial class InputSourceViewModel : ViewModelBase, IAsyncDisposable
         OnPropertyChanged(nameof(SelectedRightChannels));
     }
 
+    private void QueueUiNotification(PlotDataChangeKind kind)
+    {
+        long version;
+        lock (_gate)
+        {
+            version = Buffer.Version;
+        }
+
+        lock (_uiNotificationGate)
+        {
+            _pendingUiChangeKind = CombinePendingChange(_pendingUiChangeKind, kind);
+            _pendingUiBufferVersion = version;
+            if (_uiNotificationQueued)
+            {
+                return;
+            }
+
+            _uiNotificationQueued = true;
+        }
+
+        Dispatcher.UIThread.Post(ProcessQueuedUiNotification);
+    }
+
+    private void ProcessQueuedUiNotification()
+    {
+        PlotDataChangeKind kind;
+        long version;
+        lock (_uiNotificationGate)
+        {
+            kind = _pendingUiChangeKind;
+            version = _pendingUiBufferVersion;
+            _pendingUiChangeKind = PlotDataChangeKind.Append;
+            _uiNotificationQueued = false;
+        }
+
+        if (_schema is { } schema && Channels.Count == 0)
+        {
+            InitializeChannels(schema);
+            kind = PlotDataChangeKind.Rebuild;
+        }
+        else if (kind == PlotDataChangeKind.Append)
+        {
+            UpdateEligibility();
+        }
+
+        RaiseDataChanged(kind, version);
+    }
+
+    private static PlotDataChangeKind CombinePendingChange(PlotDataChangeKind current, PlotDataChangeKind next)
+        => current == PlotDataChangeKind.Rebuild || next == PlotDataChangeKind.Rebuild
+            ? PlotDataChangeKind.Rebuild
+            : next;
+
     private void RaiseDataChanged(PlotDataChangeKind kind)
         => DataChanged?.Invoke(this, new SourceDataChangedEventArgs(this, kind, Buffer.Version));
+
+    private void RaiseDataChanged(PlotDataChangeKind kind, long bufferVersion)
+        => DataChanged?.Invoke(this, new SourceDataChangedEventArgs(this, kind, bufferVersion));
 
     public async ValueTask DisposeAsync()
     {
