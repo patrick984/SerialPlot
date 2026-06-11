@@ -1,0 +1,41 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SerialPlot.ViewModels"
+        x:Class="SerialPlot.Views.SourceManagerWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="520"
+        Height="360"
+        MinWidth="420"
+        MinHeight="300"
+        Title="Manage Sources">
+  <Grid RowDefinitions="*,Auto" Margin="16" RowSpacing="12">
+    <ListBox ItemsSource="{Binding Sources}"
+             SelectedItem="{Binding SelectedSource}">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:InputSourceViewModel">
+          <Grid ColumnDefinitions="*,Auto" Margin="0,4">
+            <StackPanel Grid.Column="0">
+              <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding Status}" FontSize="12" Opacity="0.8"/>
+              <TextBlock Text="{Binding ErrorMessage}"
+                         IsVisible="{Binding HasError}"
+                         FontSize="12"
+                         Foreground="#B00020"
+                         TextWrapping="Wrap"/>
+            </StackPanel>
+            <TextBlock Grid.Column="1"
+                       Text="{Binding Channels.Count, StringFormat='{}{0} channels'}"
+                       VerticalAlignment="Center"
+                       Margin="12,0,0,0"/>
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button Content="Add Source" Click="AddSourceClicked"/>
+      <Button Content="Remove Source" Click="RemoveSourceClicked"/>
+      <Button Content="Close" Click="CloseClicked"/>
+    </StackPanel>
+  </Grid>
+</Window>

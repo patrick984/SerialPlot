@@ -131,12 +131,9 @@ public partial class MainWindow : Window
 
     private void SynchronizeSeries(MainWindowViewModel vm)
     {
-        var selected = vm.SelectedLeftChannels
-            .Select(channel => new SeriesSelection(channel, SeriesSide.Left))
-            .Concat(vm.SelectedRightChannels.Select(channel => new SeriesSelection(channel, SeriesSide.Right)))
-            .ToArray();
+        var selected = vm.SelectedTraces.ToArray();
 
-        var selectedKeys = selected.Select(x => new SeriesKey(x.Channel.Index, x.Side)).ToHashSet();
+        var selectedKeys = selected.Select(x => new SeriesKey(x.Source, x.Channel.Index, x.Side)).ToHashSet();
         foreach (var key in _series.Keys.Where(key => !selectedKeys.Contains(key)).ToArray())
         {
             _series[key].Remove();
@@ -145,7 +142,7 @@ public partial class MainWindow : Window
 
         foreach (var selection in selected)
         {
-            var key = new SeriesKey(selection.Channel.Index, selection.Side);
+            var key = new SeriesKey(selection.Source, selection.Channel.Index, selection.Side);
             if (_series.ContainsKey(key))
             {
                 continue;
@@ -155,19 +152,19 @@ public partial class MainWindow : Window
         }
     }
 
-    private SeriesState CreateSeries(MainWindowViewModel vm, SeriesSelection selection)
+    private SeriesState CreateSeries(MainWindowViewModel vm, TraceSelection selection)
     {
         var buffer = new FixedXyRingBuffer(vm.BufferCapacity);
         var color = Plot.Plot.Add.GetNextColor();
         var traceBrush = ToBrush(color);
         var older = Plot.Plot.Add.SignalXY(buffer.Xs, buffer.Ys, color);
         var newer = Plot.Plot.Add.SignalXY(buffer.Xs, buffer.Ys, color);
-        older.LegendText = selection.Channel.Name;
+        older.LegendText = $"{selection.Source.DisplayName}: {selection.Channel.Name}";
         newer.LegendText = string.Empty;
         ConfigureSignalMarkers(older, color);
         ConfigureSignalMarkers(newer, color);
 
-        var yAxis = selection.Side == SeriesSide.Left ? Plot.Plot.Axes.Left : Plot.Plot.Axes.Right;
+        var yAxis = selection.Side == TraceAxisSide.Left ? Plot.Plot.Axes.Left : Plot.Plot.Axes.Right;
         older.Axes.YAxis = yAxis;
         newer.Axes.YAxis = yAxis;
 
@@ -177,6 +174,7 @@ public partial class MainWindow : Window
 
         return new SeriesState(
             selection.Channel,
+            selection.Source,
             selection.Side,
             traceBrush,
             buffer,
@@ -188,8 +186,8 @@ public partial class MainWindow : Window
             },
             older,
             newer,
-            new double[vm.BufferCapacity],
-            new double[vm.BufferCapacity]);
+            new double[selection.Source.BufferCapacity],
+            new double[selection.Source.BufferCapacity]);
     }
 
     private static void UpdateSeriesData(MainWindowViewModel vm, SeriesState series, PlotDataChangedEventArgs args)
@@ -197,31 +195,40 @@ public partial class MainWindow : Window
         if (args.Kind is PlotDataChangeKind.Clear)
         {
             series.Buffer.Clear();
-            series.LastBufferVersion = args.BufferVersion;
+            series.LastBufferVersion = series.Source.Buffer.Version;
             series.InvalidateHoverCache();
             series.UpdateSegments();
             return;
         }
 
+        if (args.Kind is PlotDataChangeKind.Append && args.Source is not null && !ReferenceEquals(args.Source, series.Source))
+        {
+            return;
+        }
+
+        var sourceBufferVersion = ReferenceEquals(args.Source, series.Source)
+            ? args.SourceBufferVersion
+            : series.Source.Buffer.Version;
+
         var mustRebuild = args.Kind is PlotDataChangeKind.SelectionChanged or PlotDataChangeKind.XChannelChanged or PlotDataChangeKind.Rebuild
             || series.LastBufferVersion < 0
-            || !vm.IsBufferVersionAvailable(series.LastBufferVersion);
+            || !vm.IsBufferVersionAvailable(series.Source, series.LastBufferVersion);
 
         if (mustRebuild)
         {
-            var length = vm.CopyValidPairs(series.Channel, series.TempXs, series.TempYs);
+            var length = vm.CopyValidPairs(series.Source, series.Channel, series.TempXs, series.TempYs);
             series.Buffer.Rebuild(series.TempXs, series.TempYs, length);
         }
-        else if (args.BufferVersion > series.LastBufferVersion)
+        else if (sourceBufferVersion > series.LastBufferVersion)
         {
-            var length = vm.CopyValidPairsSince(series.LastBufferVersion, series.Channel, series.TempXs, series.TempYs);
+            var length = vm.CopyValidPairsSince(series.Source, series.LastBufferVersion, series.Channel, series.TempXs, series.TempYs);
             for (var i = 0; i < length; i++)
             {
                 series.Buffer.Append(series.TempXs[i], series.TempYs[i]);
             }
         }
 
-        series.LastBufferVersion = args.BufferVersion;
+        series.LastBufferVersion = sourceBufferVersion;
         series.InvalidateHoverCache();
         series.UpdateSegments();
     }
@@ -245,9 +252,9 @@ public partial class MainWindow : Window
         signal.MarkerSize = 0;
     }
 
-    private static void SetTraceBrush(ChannelViewModel channel, SeriesSide side, IBrush? brush)
+    private static void SetTraceBrush(ChannelViewModel channel, TraceAxisSide side, IBrush? brush)
     {
-        if (side is SeriesSide.Left)
+        if (side is TraceAxisSide.Left)
         {
             channel.LeftTraceBrush = brush;
         }
@@ -303,12 +310,12 @@ public partial class MainWindow : Window
             ResetXRangeAnimation();
         }
 
-        if (vm.AutoScaleLeftY && HasSeriesData(SeriesSide.Left))
+        if (vm.AutoScaleLeftY && HasSeriesData(TraceAxisSide.Left))
         {
             Plot.Plot.Axes.AutoScaleY(Plot.Plot.Axes.Left);
         }
 
-        if (vm.AutoScaleRightY && HasSeriesData(SeriesSide.Right))
+        if (vm.AutoScaleRightY && HasSeriesData(TraceAxisSide.Right))
         {
             Plot.Plot.Axes.AutoScaleY(Plot.Plot.Axes.Right);
         }
@@ -419,7 +426,7 @@ public partial class MainWindow : Window
         return NormalizeRange(ref min, ref max);
     }
 
-    private bool HasSeriesData(SeriesSide side)
+    private bool HasSeriesData(TraceAxisSide side)
         => _series.Values.Any(x => x.Side == side && x.Buffer.Count > 0);
 
     private bool TryGetRecentXSpacing(out double spacing)
@@ -512,6 +519,22 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (vm.Sources.Count > 1)
+        {
+            var folder = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Choose folder for captured CSV files",
+                AllowMultiple = false,
+            });
+
+            if (folder.Count > 0 && folder[0].Path.LocalPath is { Length: > 0 } folderPath)
+            {
+                await vm.SaveRawCsvAsync(folderPath);
+            }
+
+            return;
+        }
+
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Save captured CSV",
@@ -524,6 +547,20 @@ public partial class MainWindow : Window
         {
             await vm.SaveRawCsvAsync(path);
         }
+    }
+
+    private void ManageSourcesClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        var window = new SourceManagerWindow
+        {
+            DataContext = vm,
+        };
+        window.Show(this);
     }
 
     private void PlotPointerInput(object? sender, PointerEventArgs e)
@@ -618,7 +655,7 @@ public partial class MainWindow : Window
         CursorHit? nearest = null;
         foreach (var series in _series.Values)
         {
-            var yAxis = series.Side == SeriesSide.Left ? Plot.Plot.Axes.Left : Plot.Plot.Axes.Right;
+            var yAxis = series.Side == TraceAxisSide.Left ? Plot.Plot.Axes.Left : Plot.Plot.Axes.Right;
             series.EnsureHoverCache(visibleXRange);
             var xRange = GetCandidateXRange(mousePixelX, mousePixelY, hitRadius, yAxis);
             var point = series.HoverIndex.FindNearest(
@@ -634,7 +671,7 @@ public partial class MainWindow : Window
 
             if (point is { } value && (nearest is null || value.DistanceSquared < nearest.Value.DistanceSquared))
             {
-                nearest = new CursorHit(series.Channel.Name, value.X, value.Y, value.DistanceSquared, yAxis, series.TraceBrush);
+                nearest = new CursorHit($"{series.Source.DisplayName}: {series.Channel.Name}", value.X, value.Y, value.DistanceSquared, yAxis, series.TraceBrush);
             }
         }
 
@@ -680,21 +717,14 @@ public partial class MainWindow : Window
         CursorLabel.IsVisible = false;
     }
 
-    private enum SeriesSide
-    {
-        Left,
-        Right,
-    }
-
-    private readonly record struct SeriesKey(int ChannelIndex, SeriesSide Side);
-
-    private readonly record struct SeriesSelection(ChannelViewModel Channel, SeriesSide Side);
+    private readonly record struct SeriesKey(InputSourceViewModel Source, int ChannelIndex, TraceAxisSide Side);
 
     private readonly record struct CursorHit(string SeriesName, double X, double Y, double DistanceSquared, IYAxis YAxis, IBrush TraceBrush);
 
     private sealed class SeriesState(
         ChannelViewModel channel,
-        SeriesSide side,
+        InputSourceViewModel source,
+        TraceAxisSide side,
         IBrush traceBrush,
         FixedXyRingBuffer buffer,
         Action remove,
@@ -704,7 +734,8 @@ public partial class MainWindow : Window
         double[] tempYs)
     {
         public ChannelViewModel Channel { get; } = channel;
-        public SeriesSide Side { get; } = side;
+        public InputSourceViewModel Source { get; } = source;
+        public TraceAxisSide Side { get; } = side;
         public IBrush TraceBrush { get; } = traceBrush;
         public FixedXyRingBuffer Buffer { get; } = buffer;
         public Action Remove { get; } = remove;

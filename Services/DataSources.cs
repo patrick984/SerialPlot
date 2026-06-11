@@ -26,6 +26,15 @@ public static class CsvLineSourceFactory
         SourceType.Udp => new UdpLineSource(config.Host!, config.Port!.Value, config.UdpMessage ?? string.Empty),
         _ => throw new InvalidOperationException("Unsupported source type."),
     };
+
+    public static ICsvLineSource Create(InputSourceConfig config) => config.Source switch
+    {
+        SourceType.Stdin => new StandardInputLineSource(),
+        SourceType.Serial => new SerialLineSource(config.SerialPort!, config.Baud!.Value),
+        SourceType.Tcp => new TcpLineSource(config.Host!, config.Port!.Value),
+        SourceType.Udp => new UdpLineSource(config.Host!, config.Port!.Value, config.UdpMessage ?? string.Empty),
+        _ => throw new InvalidOperationException("Unsupported source type."),
+    };
 }
 
 public sealed class StandardInputLineSource : ICsvLineSource

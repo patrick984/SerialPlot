@@ -10,6 +10,12 @@ public enum ColumnKind
     DateTime,
 }
 
+public enum TraceAxisSide
+{
+    Left,
+    Right,
+}
+
 public readonly record struct ParsedCell(double NumericValue, DateTimeOffset? DateTimeValue, bool IsValid)
 {
     public static ParsedCell Gap { get; } = new(double.NaN, null, false);

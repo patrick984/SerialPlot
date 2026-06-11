@@ -9,6 +9,9 @@ namespace SerialPlot.ViewModels;
 public partial class SetupWindowViewModel : ViewModelBase
 {
     [ObservableProperty]
+    private string _sourceName = "Source";
+
+    [ObservableProperty]
     private SourceType _source = SourceType.Stdin;
 
     [ObservableProperty]
@@ -50,18 +53,38 @@ public partial class SetupWindowViewModel : ViewModelBase
     public IReadOnlyList<SourceType> Sources { get; } = Enum.GetValues<SourceType>();
     public IReadOnlyList<TimestampUnit> TimestampUnits { get; } = Enum.GetValues<TimestampUnit>();
 
-    public AppConfig ToConfig() => new(
-        Source,
-        string.IsNullOrWhiteSpace(SerialPort) ? null : SerialPort.Trim(),
-        Baud,
-        string.IsNullOrWhiteSpace(Host) ? null : Host.Trim(),
-        Port,
-        Source == SourceType.Udp ? UdpMessage : null,
-        BufferSize,
-        TimestampUnit,
-        string.IsNullOrWhiteSpace(InitialX) ? null : InitialX.Trim(),
-        Split(InitialYLeft),
-        Split(InitialYRight));
+    public AppConfig ToConfig()
+    {
+        var sourceConfig = new InputSourceConfig(
+            string.IsNullOrWhiteSpace(SourceName) ? "Source" : SourceName.Trim(),
+            Source,
+            string.IsNullOrWhiteSpace(SerialPort) ? null : SerialPort.Trim(),
+            Baud,
+            string.IsNullOrWhiteSpace(Host) ? null : Host.Trim(),
+            Port,
+            Source == SourceType.Udp ? UdpMessage : null,
+            BufferSize,
+            TimestampUnit,
+            string.IsNullOrWhiteSpace(InitialX) ? null : InitialX.Trim(),
+            Split(InitialYLeft),
+            Split(InitialYRight));
+
+        return new AppConfig(
+            sourceConfig.Source,
+            sourceConfig.SerialPort,
+            sourceConfig.Baud,
+            sourceConfig.Host,
+            sourceConfig.Port,
+            sourceConfig.UdpMessage,
+            sourceConfig.BufferSize,
+            sourceConfig.TimestampUnit,
+            sourceConfig.InitialX,
+            sourceConfig.InitialYLeft,
+            sourceConfig.InitialYRight)
+        {
+            Sources = [sourceConfig],
+        };
+    }
 
     public bool TryBuild(out AppConfig config)
     {

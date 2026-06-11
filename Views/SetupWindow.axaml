@@ -20,6 +20,9 @@
 
   <ScrollViewer>
     <StackPanel Margin="20" Spacing="4">
+      <TextBlock Text="Source name" Classes="label"/>
+      <TextBox Text="{Binding SourceName}"/>
+
       <TextBlock Text="Source" Classes="label"/>
       <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Source}"/>
 

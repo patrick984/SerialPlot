@@ -51,6 +51,7 @@
         <CheckBox Content="Y Right Auto" IsChecked="{Binding AutoScaleRightY}" VerticalAlignment="Center"/>
         <Button Content="Export PNG" Click="ExportPngClicked"/>
         <Button Content="Save CSV" Click="SaveCsvClicked"/>
+        <Button Content="Sources" Click="ManageSourcesClicked"/>
         <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Margin="12,0,0,0"/>
       </StackPanel>
     </Border>
@@ -83,6 +84,16 @@
       <DockPanel>
         <StackPanel DockPanel.Dock="Top" Spacing="4">
           <TextBlock Text="X channel" Classes="section"/>
+          <ComboBox ItemsSource="{Binding Sources}"
+                    SelectedItem="{Binding SelectedSource}"
+                    HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:InputSourceViewModel">
+                <TextBlock Text="{Binding DisplayName}"/>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBlock Text="Source X channel" Classes="section"/>
           <ComboBox ItemsSource="{Binding Channels}"
                     SelectedItem="{Binding SelectedXChannel}"
                     HorizontalAlignment="Stretch">

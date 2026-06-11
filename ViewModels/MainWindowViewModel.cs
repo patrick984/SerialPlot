@@ -24,27 +24,25 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     ];
 
     private readonly AppConfig _config;
-    private readonly ICsvLineSource _source;
-    private readonly CsvStreamParser _parser;
     private readonly CancellationTokenSource _cancellation = new();
-    private readonly object _gate = new();
     private readonly Stopwatch _plotUpdateClock = Stopwatch.StartNew();
     private readonly UserPreferencesService _preferencesService;
-    private CsvSchema? _schema;
-    private ColumnState[] _columnStates = [];
-    private Task? _readerTask;
     private Task? _preferencesLoadTask;
-    private bool _updatingChannelSelection;
     private bool _loadingPreferences;
+    private bool _updatingSelectedSource;
+    private bool _started;
 
     private static readonly TimeSpan MinimumPlotUpdateInterval = TimeSpan.FromMilliseconds(33);
 
     public event EventHandler<PlotDataChangedEventArgs>? PlotDataChanged;
 
-    public ObservableCollection<ChannelViewModel> Channels { get; } = [];
+    public ObservableCollection<InputSourceViewModel> Sources { get; } = [];
 
     [ObservableProperty]
     private ChannelViewModel? _selectedXChannel;
+
+    [ObservableProperty]
+    private InputSourceViewModel? _selectedSource;
 
     [ObservableProperty]
     private bool _isPaused;
@@ -76,9 +74,8 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty]
     private int _steppedFutureSpaceSeconds = UserPreferences.DefaultSteppedFutureSpaceSeconds;
 
-    public PlotBuffer Buffer { get; }
-    public RawCsvBuffer RawCsv { get; }
-    public int BufferCapacity => _config.BufferSize;
+    public ObservableCollection<ChannelViewModel> Channels => SelectedSource?.Channels ?? [];
+    public int BufferCapacity => Sources.Count == 0 ? _config.BufferSize : Sources.Max(x => x.BufferCapacity);
     public IReadOnlyList<XAutoscaleModeOption> XAutoscaleModeOptions { get; } = XAutoscaleModeOptionValues;
     public string PauseButtonText => IsPaused ? "Resume" : "Pause";
     public bool IsSteppedExpansionSelected => XAutoscaleMode is XAutoscaleMode.SteppedExpansion;
@@ -89,108 +86,99 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     }
 
     public MainWindowViewModel(AppConfig config)
-        : this(config, CsvLineSourceFactory.Create(config), new UserPreferencesService())
+        : this(config, CreateSources(config), new UserPreferencesService())
     {
     }
 
     public MainWindowViewModel(AppConfig config, ICsvLineSource source)
-        : this(config, source, new UserPreferencesService())
+        : this(config, [new InputSourceViewModel(config.Sources[0], source)], new UserPreferencesService())
     {
     }
 
     public MainWindowViewModel(AppConfig config, ICsvLineSource source, UserPreferencesService preferencesService)
+        : this(config, [new InputSourceViewModel(config.Sources[0], source)], preferencesService)
+    {
+    }
+
+    public MainWindowViewModel(AppConfig config, IEnumerable<InputSourceViewModel> sources, UserPreferencesService preferencesService)
     {
         _config = config;
-        _source = source;
         _preferencesService = preferencesService;
-        _parser = new CsvStreamParser(config.TimestampUnit);
-        Buffer = new PlotBuffer(config.BufferSize);
-        RawCsv = new RawCsvBuffer(config.BufferSize + 1);
+        foreach (var source in sources)
+        {
+            AddSource(source);
+        }
+
+        SelectedSource = Sources.FirstOrDefault();
     }
 
     public void Start()
     {
-        Status = $"Waiting for CSV header from {DescribeSource(_config.Source)}...";
+        Status = Sources.Count == 0 ? "No sources configured." : "Waiting for CSV headers...";
         _preferencesLoadTask ??= LoadPreferencesAsync();
-        _readerTask ??= Task.Run(ReadLoopAfterPreferencesAsync);
+        _ = StartSourcesAfterPreferencesAsync();
     }
 
-    private async Task ReadLoopAfterPreferencesAsync()
+    private async Task StartSourcesAfterPreferencesAsync()
     {
         if (_preferencesLoadTask is not null)
         {
             await _preferencesLoadTask.ConfigureAwait(false);
         }
 
-        await ReadLoopAsync().ConfigureAwait(false);
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            foreach (var source in Sources)
+            {
+                source.Start();
+            }
+
+            _started = true;
+        });
     }
 
     public (double[] Xs, double[] Ys) GetSeries(ChannelViewModel yChannel)
     {
-        var x = SelectedXChannel;
-        if (x is null)
-        {
-            return ([], []);
-        }
-
-        lock (_gate)
-        {
-            return Buffer.GetSeries(x.Index, yChannel.Index);
-        }
+        return SelectedSource?.Buffer.GetSeries(SelectedSource.SelectedXChannel?.Index ?? -1, yChannel.Index) ?? ([], []);
     }
 
     public int CopySeries(ChannelViewModel yChannel, double[] xs, double[] ys)
     {
-        var x = SelectedXChannel;
-        if (x is null)
-        {
-            return 0;
-        }
-
-        lock (_gate)
-        {
-            return Buffer.CopySeries(x.Index, yChannel.Index, xs, ys);
-        }
+        var source = SelectedSource;
+        var x = source?.SelectedXChannel;
+        return source is null || x is null ? 0 : source.Buffer.CopySeries(x.Index, yChannel.Index, xs, ys);
     }
 
     public int CopyValidPairs(ChannelViewModel yChannel, double[] xs, double[] ys)
     {
-        var x = SelectedXChannel;
-        if (x is null)
-        {
-            return 0;
-        }
-
-        lock (_gate)
-        {
-            return Buffer.CopyValidPairs(x.Index, yChannel.Index, xs, ys);
-        }
+        return SelectedSource?.CopyValidPairs(yChannel, xs, ys) ?? 0;
     }
 
     public int CopyValidPairsSince(long afterVersion, ChannelViewModel yChannel, double[] xs, double[] ys)
     {
-        var x = SelectedXChannel;
-        if (x is null)
-        {
-            return 0;
-        }
-
-        lock (_gate)
-        {
-            return Buffer.CopyValidPairsSince(afterVersion, x.Index, yChannel.Index, xs, ys);
-        }
+        return SelectedSource?.CopyValidPairsSince(afterVersion, yChannel, xs, ys) ?? 0;
     }
 
     public bool IsBufferVersionAvailable(long version)
     {
-        lock (_gate)
-        {
-            return Buffer.Count == 0 || version >= Buffer.OldestVersion;
-        }
+        return SelectedSource?.IsBufferVersionAvailable(version) ?? true;
     }
 
-    public IReadOnlyList<ChannelViewModel> SelectedLeftChannels => Channels.Where(x => x.IsSelectedLeft && x.CanBeY).ToArray();
-    public IReadOnlyList<ChannelViewModel> SelectedRightChannels => Channels.Where(x => x.IsSelectedRight && x.CanBeY).ToArray();
+    public int CopyValidPairs(InputSourceViewModel source, ChannelViewModel yChannel, double[] xs, double[] ys)
+        => source.CopyValidPairs(yChannel, xs, ys);
+
+    public int CopyValidPairsSince(InputSourceViewModel source, long afterVersion, ChannelViewModel yChannel, double[] xs, double[] ys)
+        => source.CopyValidPairsSince(afterVersion, yChannel, xs, ys);
+
+    public bool IsBufferVersionAvailable(InputSourceViewModel source, long version)
+        => source.IsBufferVersionAvailable(version);
+
+    public IReadOnlyList<ChannelViewModel> SelectedLeftChannels => SelectedSource?.SelectedLeftChannels ?? [];
+    public IReadOnlyList<ChannelViewModel> SelectedRightChannels => SelectedSource?.SelectedRightChannels ?? [];
+    public IReadOnlyList<TraceSelection> SelectedTraces => Sources
+        .SelectMany(source => source.SelectedLeftChannels.Select(channel => new TraceSelection(source, channel, TraceAxisSide.Left))
+            .Concat(source.SelectedRightChannels.Select(channel => new TraceSelection(source, channel, TraceAxisSide.Right))))
+        .ToArray();
 
     [RelayCommand]
     private void TogglePause()
@@ -204,9 +192,9 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     [RelayCommand]
     public void Clear()
     {
-        lock (_gate)
+        foreach (var source in Sources)
         {
-            Buffer.Clear();
+            source.Clear();
         }
 
         RaisePlotDataChanged(PlotDataChangeKind.Clear);
@@ -223,18 +211,42 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     public async Task SaveRawCsvAsync(string path)
     {
-        string text;
-        lock (_gate)
+        if (Sources.Count <= 1)
         {
-            text = RawCsv.ToCsvText();
+            await File.WriteAllTextAsync(path, Sources.FirstOrDefault()?.GetRawCsvText() ?? string.Empty, _cancellation.Token).ConfigureAwait(false);
+            return;
         }
 
-        await File.WriteAllTextAsync(path, text, _cancellation.Token).ConfigureAwait(false);
+        Directory.CreateDirectory(path);
+        foreach (var source in Sources)
+        {
+            var fileName = SanitizeFileName(source.DisplayName) + ".csv";
+            await File.WriteAllTextAsync(Path.Combine(path, fileName), source.GetRawCsvText(), _cancellation.Token).ConfigureAwait(false);
+        }
     }
 
     partial void OnSelectedXChannelChanged(ChannelViewModel? value)
     {
-        RaisePlotDataChanged(PlotDataChangeKind.XChannelChanged);
+        if (!_updatingSelectedSource && SelectedSource is { } source && source.SelectedXChannel != value)
+        {
+            source.SelectedXChannel = value;
+        }
+    }
+
+    partial void OnSelectedSourceChanged(InputSourceViewModel? value)
+    {
+        try
+        {
+            _updatingSelectedSource = true;
+            OnPropertyChanged(nameof(Channels));
+            SelectedXChannel = value?.SelectedXChannel;
+            OnPropertyChanged(nameof(SelectedLeftChannels));
+            OnPropertyChanged(nameof(SelectedRightChannels));
+        }
+        finally
+        {
+            _updatingSelectedSource = false;
+        }
     }
 
     partial void OnAutoScaleXChanged(bool value) => RaisePlotDataChanged(PlotDataChangeKind.Autoscale);
@@ -315,98 +327,6 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private static XAutoscaleModeOption GetXAutoscaleModeOption(XAutoscaleMode mode)
         => XAutoscaleModeOptionValues.FirstOrDefault(x => x.Mode == mode) ?? XAutoscaleModeOptionValues[0];
 
-    private async Task ReadLoopAsync()
-    {
-        try
-        {
-            await foreach (var line in _source.ReadLinesAsync(_cancellation.Token).ConfigureAwait(false))
-            {
-                if (_schema is null)
-                {
-                    var schema = _parser.ParseHeader(line);
-                    _schema = schema;
-                    lock (_gate)
-                    {
-                        RawCsv.Add(line);
-                    }
-
-                    await Dispatcher.UIThread.InvokeAsync(() => InitializeChannels(schema));
-                    continue;
-                }
-
-                var parsed = _parser.ParseRow(_schema, line);
-                lock (_gate)
-                {
-                    RawCsv.Add(parsed.RawLine);
-                    Buffer.Add(parsed.Cells);
-                    for (var i = 0; i < parsed.Cells.Count; i++)
-                    {
-                        _columnStates[i].Observe(parsed.Cells[i]);
-                    }
-                }
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    UpdateEligibility();
-                    if (!IsPaused && ShouldUpdatePlot())
-                    {
-                        RaisePlotDataChanged(PlotDataChangeKind.Append);
-                    }
-                });
-            }
-
-            if (_schema is null && !_cancellation.IsCancellationRequested)
-            {
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    Status = "Stream ended before CSV header.";
-                });
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                ErrorMessage = ex.Message;
-                HasError = true;
-                Status = "Stream stopped.";
-            });
-        }
-    }
-
-    private void InitializeChannels(CsvSchema schema)
-    {
-        Channels.Clear();
-        _columnStates = schema.Headers.Select(x => new ColumnState(x)).ToArray();
-        for (var i = 0; i < schema.Headers.Count; i++)
-        {
-            var channel = new ChannelViewModel(schema.Headers[i], i);
-            channel.PropertyChanged += (_, args) =>
-            {
-                if (args.PropertyName is nameof(ChannelViewModel.IsSelectedLeft) or nameof(ChannelViewModel.IsSelectedRight))
-                {
-                    ApplyExclusiveAxisSelection(channel, args.PropertyName);
-                    OnPropertyChanged(nameof(SelectedLeftChannels));
-                    OnPropertyChanged(nameof(SelectedRightChannels));
-                    RaisePlotDataChanged(PlotDataChangeKind.SelectionChanged);
-                }
-            };
-            Channels.Add(channel);
-        }
-
-        SelectedXChannel = Channels.FirstOrDefault(x => string.Equals(x.Name, _config.InitialX, StringComparison.Ordinal));
-        foreach (var channel in Channels)
-        {
-            channel.IsSelectedLeft = _config.InitialYLeft.Contains(channel.Name, StringComparer.Ordinal);
-            channel.IsSelectedRight = _config.InitialYRight.Contains(channel.Name, StringComparer.Ordinal);
-        }
-
-        Status = "Header read; waiting for selectable data.";
-    }
-
     private bool ShouldUpdatePlot()
     {
         if (_plotUpdateClock.Elapsed < MinimumPlotUpdateInterval)
@@ -420,48 +340,41 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     private void RaisePlotDataChanged(PlotDataChangeKind kind)
     {
-        PlotDataChanged?.Invoke(this, new PlotDataChangedEventArgs(kind, Buffer.Version));
+        PlotDataChanged?.Invoke(this, new PlotDataChangedEventArgs(kind, Sources.Sum(x => x.Buffer.Version)));
     }
 
-    private void ApplyExclusiveAxisSelection(ChannelViewModel channel, string? propertyName)
+    private void RaisePlotDataChanged(SourceDataChangedEventArgs sourceArgs)
     {
-        if (_updatingChannelSelection)
+        if (sourceArgs.Kind == PlotDataChangeKind.Append && (IsPaused || !ShouldUpdatePlot()))
         {
             return;
         }
 
-        try
+        if (sourceArgs.Kind is PlotDataChangeKind.SelectionChanged or PlotDataChangeKind.XChannelChanged or PlotDataChangeKind.Rebuild)
         {
-            _updatingChannelSelection = true;
-            if (propertyName == nameof(ChannelViewModel.IsSelectedLeft) && channel.IsSelectedLeft)
+            OnPropertyChanged(nameof(SelectedTraces));
+        }
+
+        if (ReferenceEquals(sourceArgs.Source, SelectedSource))
+        {
+            try
             {
-                channel.IsSelectedRight = false;
+                _updatingSelectedSource = true;
+                OnPropertyChanged(nameof(Channels));
+                SelectedXChannel = sourceArgs.Source.SelectedXChannel;
+                OnPropertyChanged(nameof(SelectedLeftChannels));
+                OnPropertyChanged(nameof(SelectedRightChannels));
             }
-            else if (propertyName == nameof(ChannelViewModel.IsSelectedRight) && channel.IsSelectedRight)
+            finally
             {
-                channel.IsSelectedLeft = false;
+                _updatingSelectedSource = false;
             }
         }
-        finally
-        {
-            _updatingChannelSelection = false;
-        }
-    }
 
-    private void UpdateEligibility()
-    {
-        for (var i = 0; i < Channels.Count; i++)
-        {
-            Channels[i].Apply(_columnStates[i]);
-        }
-
-        if (SelectedXChannel is null)
-        {
-            SelectedXChannel = Channels.FirstOrDefault(x => x.CanBeX);
-        }
-
-        OnPropertyChanged(nameof(SelectedLeftChannels));
-        OnPropertyChanged(nameof(SelectedRightChannels));
+        Status = BuildStatus();
+        HasError = Sources.Any(x => x.HasError);
+        ErrorMessage = string.Join(Environment.NewLine, Sources.Where(x => x.HasError).Select(x => $"{x.DisplayName}: {x.ErrorMessage}"));
+        PlotDataChanged?.Invoke(this, new PlotDataChangedEventArgs(sourceArgs.Source, sourceArgs.Kind, sourceArgs.BufferVersion, Sources.Sum(x => x.Buffer.Version)));
     }
 
     public async ValueTask DisposeAsync()
@@ -473,31 +386,104 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
             catch { }
         }
 
-        if (_readerTask is not null)
+        foreach (var source in Sources.ToArray())
         {
-            try { await _readerTask.ConfigureAwait(false); }
-            catch (OperationCanceledException) { }
+            await source.DisposeAsync().ConfigureAwait(false);
         }
-
-        await _source.DisposeAsync().ConfigureAwait(false);
         _cancellation.Dispose();
     }
 
-    private static string DescribeSource(SourceType source) => source switch
+    public void AddSource(InputSourceViewModel source)
     {
-        SourceType.Stdin => "standard input",
-        SourceType.Serial => "serial port",
-        SourceType.Tcp => "TCP socket",
-        SourceType.Udp => "UDP socket",
-        _ => "stream",
-    };
+        source.DataChanged += (_, args) => RaisePlotDataChanged(args);
+        source.PropertyChanged += (_, args) =>
+        {
+            if (ReferenceEquals(source, SelectedSource) && args.PropertyName == nameof(InputSourceViewModel.SelectedXChannel))
+            {
+                try
+                {
+                    _updatingSelectedSource = true;
+                    SelectedXChannel = source.SelectedXChannel;
+                }
+                finally
+                {
+                    _updatingSelectedSource = false;
+                }
+            }
+        };
+        Sources.Add(source);
+        if (_started)
+        {
+            source.Start();
+        }
+
+        SelectedSource = source;
+    }
+
+    public void AddSource(InputSourceConfig config)
+    {
+        var source = new InputSourceViewModel(config);
+        AddSource(source);
+        SelectedSource = source;
+        RaisePlotDataChanged(PlotDataChangeKind.SelectionChanged);
+    }
+
+    public async Task RemoveSourceAsync(InputSourceViewModel source)
+    {
+        if (!Sources.Remove(source))
+        {
+            return;
+        }
+
+        await source.DisposeAsync().ConfigureAwait(false);
+        if (ReferenceEquals(SelectedSource, source))
+        {
+            SelectedSource = Sources.FirstOrDefault();
+        }
+
+        RaisePlotDataChanged(PlotDataChangeKind.SelectionChanged);
+    }
+
+    private string BuildStatus()
+    {
+        if (Sources.Count == 0)
+        {
+            return "No sources configured.";
+        }
+
+        var running = Sources.Count(x => !x.IsStopped && !x.HasError);
+        var failed = Sources.Count(x => x.HasError);
+        return failed == 0
+            ? $"{running}/{Sources.Count} sources active."
+            : $"{running}/{Sources.Count} sources active; {failed} source(s) stopped with errors.";
+    }
+
+    private static IReadOnlyList<InputSourceViewModel> CreateSources(AppConfig config)
+        => config.Sources.Select(x => new InputSourceViewModel(x)).ToArray();
+
+    private static string SanitizeFileName(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var chars = value.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray();
+        var sanitized = new string(chars).Trim();
+        return sanitized.Length == 0 ? "source" : sanitized;
+    }
 }
 
 public sealed record XAutoscaleModeOption(XAutoscaleMode Mode, string Label);
 
 public sealed class PlotDataChangedEventArgs(PlotDataChangeKind kind, long bufferVersion) : EventArgs
 {
+    public PlotDataChangedEventArgs(InputSourceViewModel source, PlotDataChangeKind kind, long sourceBufferVersion, long bufferVersion)
+        : this(kind, bufferVersion)
+    {
+        Source = source;
+        SourceBufferVersion = sourceBufferVersion;
+    }
+
+    public InputSourceViewModel? Source { get; }
     public PlotDataChangeKind Kind { get; } = kind;
+    public long SourceBufferVersion { get; } = bufferVersion;
     public long BufferVersion { get; } = bufferVersion;
 }
 

@@ -44,6 +44,10 @@
 
 2.10 The stepped expand future-space duration shall be user-configurable, default to 30 seconds, and accept values from 1 to 300 seconds.
 
+2.11 The application shall support configuring multiple input sources from the command line using repeatable source specifications while preserving existing single-source command-line options.
+
+2.12 Each configured input source shall have its own source type settings, buffer size, timestamp unit, source name, initial X channel, and initial Y channel selections.
+
 ## 3. Main Window
 
 3.1 The main window shall contain a ScottPlot SignalXY plot.
@@ -65,6 +69,12 @@
 3.9 The application shall display runtime errors in pop-up pannel at the bottom of the main window.
 
 3.10 The plot controls shall provide independent persistent autoscale toggles for the X axis and Y axis.
+
+3.11 The main window shall provide runtime source management for adding and removing input sources while other sources continue running.
+
+3.12 The channel selection panel shall allow selecting the active source whose independent channels and X selection are being edited.
+
+3.13 The application shall show source-specific status and error information.
 
 ## 4. Plot Behavior
 
@@ -122,6 +132,18 @@
 
 4.22 Autoscaled Y axes shall include normal plot padding using ScottPlot's default Y autoscale behavior.
 
+4.23 The plot shall support traces from multiple input sources in the same visible plot.
+
+4.24 Each plotted Y trace shall belong to one source and shall use that source's selected X channel.
+
+4.25 Each source shall have independent X channel selection.
+
+4.26 Shared X autoscale, pan, and zoom shall use the union of visible X ranges from all plotted traces.
+
+4.27 The application shall support stacked plot panels with shared X controls and per-panel Y axes.
+
+4.28 Trace placement shall be assignable per trace so traces from the same source may be overlaid or separated.
+
 ## 5. Data Sources
 
 5.1 The data source shall be live-streamed CSV rows.
@@ -146,6 +168,14 @@
 
 5.11 The expected maximum data rate shall be 1 kHz.
 
+5.12 The application shall support multiple simultaneous live CSV data sources.
+
+5.13 Each input source shall have an independent parser, CSV schema, circular data buffer, and raw CSV capture buffer.
+
+5.14 If one source ends or fails, only that source shall stop; other sources shall continue running, and the stopped source's buffered data shall be preserved.
+
+5.15 Removing a source at runtime shall stop and dispose that source without stopping other sources.
+
 ## 6. CSV Format
 
 6.1 The first row shall be the CSV header.
@@ -163,6 +193,8 @@
 6.7 The number of columns shall remain the same after the header.
 
 6.8 If a data row has a different number of columns than the header, the application shall stop processing the stream, show an error state, and preserve the plotted data.
+
+6.9 CSV header and row validation shall be applied independently per source.
 
 ## 7. Value Parsing and Channel Eligibility
 
@@ -193,3 +225,11 @@
 7.13 Missing, blank, or invalid field values in data rows shall be plotted as gaps.
 
 7.14 Non-numeric and non-date columns shall not be selectable.
+
+## 8. Multi-Source Capture Export
+
+8.1 If one source is active, saving captured CSV data may write a single CSV file.
+
+8.2 If multiple sources are active, saving captured CSV data shall write one CSV file per source into a selected folder.
+
+8.3 Multi-source CSV export shall preserve each source's raw incoming rows exactly as received.

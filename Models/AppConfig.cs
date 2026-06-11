@@ -34,6 +34,22 @@ public sealed record AppConfig(
     IReadOnlyList<string> InitialYRight)
 {
     public const int DefaultBufferSize = 100_000;
+    public IReadOnlyList<InputSourceConfig> Sources { get; init; } =
+    [
+        new(
+            "Source 1",
+            Source,
+            SerialPort,
+            Baud,
+            Host,
+            Port,
+            UdpMessage,
+            BufferSize,
+            TimestampUnit,
+            InitialX,
+            InitialYLeft,
+            InitialYRight),
+    ];
 
     public static AppConfig Defaults() => new(
         SourceType.Stdin,
@@ -48,5 +64,19 @@ public sealed record AppConfig(
         Array.Empty<string>(),
         Array.Empty<string>());
 }
+
+public sealed record InputSourceConfig(
+    string Name,
+    SourceType Source,
+    string? SerialPort,
+    int? Baud,
+    string? Host,
+    int? Port,
+    string? UdpMessage,
+    int BufferSize,
+    TimestampUnit TimestampUnit,
+    string? InitialX,
+    IReadOnlyList<string> InitialYLeft,
+    IReadOnlyList<string> InitialYRight);
 
 public sealed record ConfigParseResult(AppConfig Config, bool IsComplete, string? Error, bool HadAnyArgs);
