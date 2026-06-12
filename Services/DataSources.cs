@@ -195,7 +195,7 @@ public sealed class UdpLineSource(string host, int port, string message) : ICsvL
 
     public async IAsyncEnumerable<string> ReadLinesAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        _client = new UdpClient(new IPEndPoint(IPAddress.Any, port));
+        _client = new UdpClient(new IPEndPoint(IPAddress.Any, 0));
         var endpoint = new IPEndPoint((await Dns.GetHostAddressesAsync(host, cancellationToken).ConfigureAwait(false))[0], port);
         var request = Encoding.ASCII.GetBytes(message);
         await _client.SendAsync(request, endpoint, cancellationToken).ConfigureAwait(false);
