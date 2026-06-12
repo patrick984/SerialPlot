@@ -4,8 +4,8 @@
         xmlns:models="using:SerialPlot.Models"
         x:Class="SerialPlot.Views.SetupWindow"
         x:DataType="vm:SetupWindowViewModel"
-        Width="520"
-        Height="620"
+        Width="780"
+        Height="460"
         CanResize="False"
         Title="SerialPlot Setup">
   <Window.Styles>
@@ -19,55 +19,71 @@
   </Window.Styles>
 
   <ScrollViewer>
-    <StackPanel Margin="20" Spacing="4">
-      <TextBlock Text="Source name" Classes="label"/>
-      <TextBox Text="{Binding SourceName}"/>
+    <Grid Margin="20" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="24" RowSpacing="14">
+      <StackPanel Grid.Column="0" Spacing="4">
+        <TextBlock Text="Source name" Classes="label"/>
+        <TextBox Text="{Binding SourceName}"/>
 
-      <TextBlock Text="Source" Classes="label"/>
-      <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Source}"/>
+        <TextBlock Text="Source" Classes="label"/>
+        <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Source}"/>
 
-      <TextBlock Text="Serial port" Classes="label"/>
-      <TextBox Text="{Binding SerialPort}" Watermark="COM3 or /dev/ttyUSB0"/>
+        <StackPanel IsVisible="{Binding ShowSerialSettings}" Spacing="4">
+          <TextBlock Text="Serial port" Classes="label"/>
+          <TextBox Text="{Binding SerialPort}" Watermark="COM3 or /dev/ttyUSB0"/>
 
-      <TextBlock Text="Baud" Classes="label"/>
-      <NumericUpDown Value="{Binding Baud}" Minimum="1" Maximum="4000000" Increment="9600"/>
+          <TextBlock Text="Baud" Classes="label"/>
+          <NumericUpDown Value="{Binding Baud}" Minimum="1" Maximum="4000000" Increment="9600"/>
+        </StackPanel>
 
-      <TextBlock Text="Host" Classes="label"/>
-      <TextBox Text="{Binding Host}"/>
+        <StackPanel IsVisible="{Binding ShowNetworkSettings}" Spacing="4">
+          <TextBlock Text="Host" Classes="label"/>
+          <TextBox Text="{Binding Host}"/>
 
-      <TextBlock Text="Port" Classes="label"/>
-      <NumericUpDown Value="{Binding Port}" Minimum="1" Maximum="65535"/>
+          <TextBlock Text="Port" Classes="label"/>
+          <NumericUpDown Value="{Binding Port}" Minimum="1" Maximum="65535"/>
+        </StackPanel>
 
-      <TextBlock Text="UDP request message" Classes="label"/>
-      <TextBox Text="{Binding UdpMessage}"/>
+        <StackPanel IsVisible="{Binding ShowUdpMessage}" Spacing="4">
+          <TextBlock Text="UDP request message" Classes="label"/>
+          <TextBox Text="{Binding UdpMessage}"/>
+        </StackPanel>
+      </StackPanel>
 
-      <TextBlock Text="Buffer size" Classes="label"/>
-      <NumericUpDown Value="{Binding BufferSize}" Minimum="1" Maximum="10000000" Increment="1000"/>
+      <StackPanel Grid.Column="1" Spacing="4">
+        <TextBlock Text="Buffer size" Classes="label"/>
+        <NumericUpDown Value="{Binding BufferSize}" Minimum="1" Maximum="10000000" Increment="1000"/>
 
-      <TextBlock Text="Timestamp unit" Classes="label"/>
-      <ComboBox ItemsSource="{Binding TimestampUnits}" SelectedItem="{Binding TimestampUnit}"/>
+        <TextBlock Text="Timestamp unit" Classes="label"/>
+        <ComboBox ItemsSource="{Binding TimestampUnits}" SelectedItem="{Binding TimestampUnit}"/>
 
-      <TextBlock Text="Initial X channel" Classes="label"/>
-      <TextBox Text="{Binding InitialX}"/>
+        <TextBlock Text="Initial X channel" Classes="label"/>
+        <TextBox Text="{Binding InitialX}"/>
 
-      <TextBlock Text="Initial left Y channels" Classes="label"/>
-      <TextBox Text="{Binding InitialYLeft}" Watermark="comma-separated"/>
+        <TextBlock Text="Initial left Y channels" Classes="label"/>
+        <TextBox Text="{Binding InitialYLeft}" Watermark="comma-separated"/>
 
-      <TextBlock Text="Initial right Y channels" Classes="label"/>
-      <TextBox Text="{Binding InitialYRight}" Watermark="comma-separated"/>
+        <TextBlock Text="Initial right Y channels" Classes="label"/>
+        <TextBox Text="{Binding InitialYRight}" Watermark="comma-separated"/>
+      </StackPanel>
 
-      <Border IsVisible="{Binding HasError}"
+      <Border Grid.Row="1"
+              Grid.ColumnSpan="2"
+              IsVisible="{Binding HasError}"
               Background="#5B1E1E"
               Padding="10"
-              CornerRadius="6"
-              Margin="0,12,0,4">
+              CornerRadius="6">
         <TextBlock Text="{Binding ErrorMessage}" Foreground="White" TextWrapping="Wrap"/>
       </Border>
 
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
+      <StackPanel Grid.Row="2"
+                  Grid.ColumnSpan="2"
+                  Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8"
+                  Margin="0,4,0,0">
         <Button Content="Cancel" Click="CancelClicked"/>
         <Button Content="Start" Click="StartClicked"/>
       </StackPanel>
-    </StackPanel>
+    </Grid>
   </ScrollViewer>
 </Window>

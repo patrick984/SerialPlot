@@ -12,6 +12,9 @@ public partial class SetupWindowViewModel : ViewModelBase
     private string _sourceName = "Source";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSerialSettings))]
+    [NotifyPropertyChangedFor(nameof(ShowNetworkSettings))]
+    [NotifyPropertyChangedFor(nameof(ShowUdpMessage))]
     private SourceType _source = SourceType.Stdin;
 
     [ObservableProperty]
@@ -49,6 +52,9 @@ public partial class SetupWindowViewModel : ViewModelBase
     private string? _errorMessage;
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+    public bool ShowSerialSettings => Source is SourceType.Serial;
+    public bool ShowNetworkSettings => Source is SourceType.Tcp or SourceType.Udp;
+    public bool ShowUdpMessage => Source is SourceType.Udp;
 
     public IReadOnlyList<SourceType> Sources { get; } = Enum.GetValues<SourceType>();
     public IReadOnlyList<TimestampUnit> TimestampUnits { get; } = Enum.GetValues<TimestampUnit>();
