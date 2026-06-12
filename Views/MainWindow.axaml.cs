@@ -97,7 +97,6 @@ public partial class MainWindow : Window
         Plot.Plot.YLabel("Left");
         Plot.Plot.Axes.Right.Label.Text = "Right";
         Plot.Plot.Axes.Right.IsVisible = true;
-        SetPlotAntiAlias(enabled: true);
         _steppedXAxisViewport.Reset();
         ResetXRangeAnimation();
         HideCursorOverlay();
@@ -325,7 +324,6 @@ public partial class MainWindow : Window
     {
         if (!TryGetVisibleXRange(out var currentRange))
         {
-            SetPlotAntiAlias(enabled: true);
             Plot.Plot.Axes.SetLimitsX(targetRange.Minimum, targetRange.Maximum);
             return;
         }
@@ -342,7 +340,6 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    SetPlotAntiAlias(enabled: true);
                     _xRangeAnimationTimer.Stop();
                 }
             }
@@ -358,18 +355,15 @@ public partial class MainWindow : Window
     {
         if (!_xRangeAnimator.IsActive)
         {
-            SetPlotAntiAlias(enabled: true);
             _xRangeAnimationTimer.Stop();
             return;
         }
 
-        SetPlotAntiAlias(enabled: false);
         var range = _xRangeAnimator.Tick(DateTime.UtcNow);
         Plot.Plot.Axes.SetLimitsX(range.Minimum, range.Maximum);
         Plot.Refresh();
         if (!_xRangeAnimator.IsActive)
         {
-            SetPlotAntiAlias(enabled: true);
             _xRangeAnimationTimer.Stop();
             Plot.Refresh();
         }
@@ -379,7 +373,6 @@ public partial class MainWindow : Window
     {
         if (!_xRangeAnimationTimer.IsEnabled)
         {
-            SetPlotAntiAlias(enabled: false);
             _xRangeAnimationTimer.Start();
         }
     }
@@ -388,13 +381,9 @@ public partial class MainWindow : Window
     {
         _xRangeAnimator.Reset();
         _xRangeAnimationTimer.Stop();
-        SetPlotAntiAlias(enabled: true);
     }
 
-    private void SetPlotAntiAlias(bool enabled)
-    {
-        Plot.Plot.Axes.AntiAlias(enabled);
-    }
+
 
     private void UpdateSampleRate(long bufferVersion)
     {
