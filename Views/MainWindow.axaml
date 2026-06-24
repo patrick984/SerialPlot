@@ -26,9 +26,9 @@
       <Setter Property="Margin" Value="0,10,0,4"/>
     </Style>
     <Style Selector="primitives|ToggleButton.axis-toggle">
-      <Setter Property="Width" Value="16"/>
-      <Setter Property="Height" Value="16"/>
-      <Setter Property="MinWidth" Value="16"/>
+      <Setter Property="Width" Value="20"/>
+      <Setter Property="Height" Value="20"/>
+      <Setter Property="MinWidth" Value="20"/>
       <Setter Property="Padding" Value="0"/>
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="BorderBrush" Value="#8A8A8A"/>
@@ -40,9 +40,9 @@
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{TemplateBinding CornerRadius}">
-            <Path Data="M3,8 L6.2,11.2 L13,4"
+            <Path Data="M4,10 L8,14 L16,6"
                   Stroke="{TemplateBinding Foreground}"
-                  StrokeThickness="2"
+                  StrokeThickness="2.2"
                   StrokeLineCap="Round"
                   StrokeJoin="Round"
                   IsVisible="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}"/>
