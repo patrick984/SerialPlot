@@ -57,9 +57,9 @@ Recent setup history is stored separately from `AppConfig`. `RecentSetupHistory`
 
 ### Setup Window
 
-`SetupWindow.axaml` is a fixed-size configuration form. It binds to `SetupWindowViewModel`, which exposes source type, recent setup entries, connection settings, buffer size, timestamp unit, and optional initial channel selections.
+`SetupWindow.axaml` is a fixed-width, vertically resizable configuration form. It binds to `SetupWindowViewModel`, which exposes source type, recent setup entries, connection settings, buffer size, timestamp unit, and optional initial channel selections.
 
-The form conditionally shows serial, network, and UDP request fields based on `SourceType`. UDP sources may also configure a request resend interval, where zero disables periodic resend. When recent history is enabled, the form shows a recent-settings dropdown filtered to the selected source type; choosing an entry applies all saved setup fields. Validation reuses `CliConfigParser.Validate`, keeping CLI and UI requirements aligned.
+The form conditionally shows serial, network, and UDP request fields based on `SourceType`. UDP sources may also configure a request resend interval, where zero disables periodic resend. When recent history is enabled, the form shows a recent-settings dropdown filtered to the selected source type; choosing an entry applies all saved setup fields. The window automatically resizes vertically to fit visible setup content up to 80% of the current screen working area, then relies on its scroll viewer for overflow. Validation reuses `CliConfigParser.Validate`, keeping CLI and UI requirements aligned.
 
 ### Main Window
 

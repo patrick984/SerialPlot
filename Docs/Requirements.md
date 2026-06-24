@@ -65,6 +65,8 @@
 
 2.20 Missing, invalid, or unreadable recent setup history shall not prevent the setup dialog from opening.
 
+2.21 The setup dialog shall be vertically resizable and shall automatically size its height to fit visible content when opened or when visible setup fields change, capped at 80% of the available vertical screen working area. If visible content exceeds that cap, the setup dialog shall provide scrolling access to all fields.
+
 ## 3. Main Window
 
 3.1 The main window shall contain a ScottPlot SignalXY plot.

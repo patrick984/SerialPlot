@@ -23,6 +23,7 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | MAN-PUBLISH-001 | Manual | Publish self-contained single-file builds for Windows, macOS, and Linux runtime identifiers and confirm each artifact starts. |
 | MAN-SETUP-001 | Manual | Launch with no CLI args and with partial CLI args; verify setup dialog appears, validates required settings, and starts the main window after valid input. |
 | MAN-RECENT-SETUP-001 | Manual | Create recent setup entries for multiple source types; verify no-arg setup pre-fills the last used source, the recent-settings selector is filtered by source type, selecting an entry applies all fields, runtime Add Source updates history, and incomplete CLI startup ignores history. |
+| MAN-SETUP-SIZE-001 | Manual | Launch setup with source types and recent/error states that change visible content; verify the window auto-fits vertically up to 80% of the screen working area, remains vertically resizable, and scrolls when content exceeds the cap. |
 | MAN-MAIN-UI-001 | Manual | Launch a test source and verify the main window contains the plot, right channel panel, channel list, source selector, axis selectors, status, error band, and toolbar controls. |
 | MAN-CHANNEL-001 | Manual | Stream data, change X and Y selections while running, assign traces to left/right axes, and confirm missing initial selections are ignored. |
 | MAN-PLOT-001 | Manual | Verify scrolling, manual pan/zoom, autoscale toggles, axis-specific autoscale disablement, hover overlay text, PNG export, and single-source CSV save. |
@@ -61,6 +62,7 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | 2.18 | AUT `RecentSetupServiceTests.RememberMovesMatchingEntryToMostRecent`, MAN-RECENT-SETUP-001 |
 | 2.19 | AUT `SetupWindowViewModelTests.InitialConfigIgnoresRecentHistory`, MAN-RECENT-SETUP-001 |
 | 2.20 | AUT `RecentSetupServiceTests.MissingFileReturnsEmptyHistory`, AUT `RecentSetupServiceTests.InvalidJsonReturnsEmptyHistory` |
+| 2.21 | MAN-SETUP-SIZE-001 |
 | 3.1 | INS-PLATFORM-001, MAN-MAIN-UI-001 |
 | 3.2 | MAN-MAIN-UI-001 |
 | 3.3 | MAN-MAIN-UI-001, MAN-CHANNEL-001 |

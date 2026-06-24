@@ -5,8 +5,10 @@
         x:Class="SerialPlot.Views.SetupWindow"
         x:DataType="vm:SetupWindowViewModel"
         Width="780"
-        Height="460"
-        CanResize="False"
+        MinWidth="780"
+        MaxWidth="780"
+        MinHeight="360"
+        CanResize="True"
         Title="SerialPlot Setup">
   <Window.Styles>
     <Style Selector="TextBlock.label">
@@ -19,7 +21,7 @@
   </Window.Styles>
 
   <ScrollViewer>
-    <Grid Margin="20" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="24" RowSpacing="14">
+    <Grid x:Name="SetupContent" Margin="20" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="24" RowSpacing="14">
       <StackPanel Grid.Column="0" Spacing="4">
         <TextBlock Text="Source name" Classes="label"/>
         <TextBox Text="{Binding SourceName}"/>
