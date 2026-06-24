@@ -40,12 +40,14 @@
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{TemplateBinding CornerRadius}">
-            <Path Data="M4,10 L8,14 L16,6"
-                  Stroke="{TemplateBinding Foreground}"
-                  StrokeThickness="2.2"
-                  StrokeLineCap="Round"
-                  StrokeJoin="Round"
-                  IsVisible="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}"/>
+            <Canvas Width="20" Height="20">
+              <Path Data="M4,10 L8,14 L16,6"
+                    Stroke="{TemplateBinding Foreground}"
+                    StrokeThickness="2.2"
+                    StrokeLineCap="Round"
+                    StrokeJoin="Round"
+                    IsVisible="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}"/>
+            </Canvas>
           </Border>
         </ControlTemplate>
       </Setter>

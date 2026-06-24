@@ -4,10 +4,10 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 
 ## Validation Summary
 
-- Automated test traceability: PASS. All 94 existing xUnit test methods are mapped to at least one parent requirement in the automated test traceability table. The current suite executes 98 cases because theories expand into multiple cases.
+- Automated test traceability: PASS. All 95 existing xUnit test methods are mapped to at least one parent requirement in the automated test traceability table. The current suite executes 103 cases because theories expand into multiple cases.
 - Requirement test-case coverage: PASS. Every requirement has at least one linked verification case.
 - Automated-only requirement coverage: INCOMPLETE. Several UI, platform, packaging, hardware, and workflow requirements are covered by manual or inspection test cases because no direct automated test exists yet.
-- Execution status: `dotnet test Tests/SerialPlot.Tests.csproj --no-restore` passed with 98 total cases, 0 failures, and 0 skipped.
+- Execution status: `dotnet test Tests/SerialPlot.Tests.csproj --no-restore` passed with 103 total cases, 0 failures, and 0 skipped.
 
 ## Verification Methods
 
@@ -84,7 +84,7 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | 3.17 | AUT `MainWindowViewModelTests.PlotLineWidthClampsToPreferenceRange`, MAN-TOOLBAR-SETTINGS-001 |
 | 3.18 | MAN-TOOLBAR-SETTINGS-001 |
 | 3.19 | MAN-CHANNEL-SELECTOR-001 |
-| 3.20 | MAN-CHANNEL-SELECTOR-001 |
+| 3.20 | AUT `AxisToggleMetricsTests.CheckGlyphStaysCenteredInFluentCheckboxFootprintAcrossDpiScales`, MAN-CHANNEL-SELECTOR-001 |
 | 4.1 | MAN-CHANNEL-001 |
 | 4.2 | AUT `CsvStreamParserTests.HeaderRejectsBlankAndDuplicateNames`, MAN-CHANNEL-001 |
 | 4.3 | AUT `MainWindowViewModelTests.AppendThrottlingPreservesDirtySources`, MAN-PLOT-001 |
@@ -190,6 +190,7 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | `SetupWindowViewModelTests.RecentHistoryDropdownIsFilteredBySourceType` | 2.17 |
 | `SetupWindowViewModelTests.SelectingRecentEntryAppliesAllSetupFields` | 2.15, 2.17 |
 | `SetupWindowViewModelTests.InitialConfigIgnoresRecentHistory` | 2.19 |
+| `AxisToggleMetricsTests.CheckGlyphStaysCenteredInFluentCheckboxFootprintAcrossDpiScales` | 3.20 |
 | `VisiblePointMarkerPolicyTests.ShowsMarkersWhenVisiblePointCountIsBelowThreshold` | 4.17 |
 | `VisiblePointMarkerPolicyTests.HidesMarkersWhenVisiblePointCountReachesThreshold` | 4.18.1 |
 | `VisiblePointMarkerPolicyTests.IgnoresInvalidAndOutsideVisibleRangePoints` | 4.18.1 |
@@ -269,6 +270,6 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 
 The following requirements are covered only by manual or inspection cases in this VCRM and do not currently have direct automated test coverage:
 
-1.1, 1.2, 1.3, 1.4, 2.4, 2.8, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.9, 3.13, 3.14, 3.15, 3.18, 3.19, 3.20, 4.1, 4.6, 4.10, 4.11, 4.15, 4.16, 4.18, 4.19, 4.20, 4.22, 4.26, 4.27, 4.28, 5.5, 5.6, 5.10, 5.11, 5.15, 5.16, 5.18, 6.4, 6.5, 6.6, 6.9, 7.5, 7.7, 8.1, 8.2, 9.2.
+1.1, 1.2, 1.3, 1.4, 2.4, 2.8, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.9, 3.13, 3.14, 3.15, 3.18, 3.19, 4.1, 4.6, 4.10, 4.11, 4.15, 4.16, 4.18, 4.19, 4.20, 4.22, 4.26, 4.27, 4.28, 5.5, 5.6, 5.10, 5.11, 5.15, 5.16, 5.18, 6.4, 6.5, 6.6, 6.9, 7.5, 7.7, 8.1, 8.2, 9.2.
 
 Requirements 4.27 and 4.28 are especially important to review because the current design document describes a single ScottPlot plot area, while these requirements call for stacked plot panels and per-trace placement.
