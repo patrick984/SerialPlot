@@ -28,6 +28,7 @@
 - TCP host and port.
 - UDP host and port.
 - UDP request message.
+- UDP request resend interval, in seconds.
 - Circular buffer point count.
 - Unix timestamp unit.
 - Initial X channel selection.
@@ -46,7 +47,9 @@
 
 2.11 The application shall support configuring multiple input sources from the command line using repeatable source specifications while preserving existing single-source command-line options.
 
-2.12 Each configured input source shall have its own source type settings, buffer size, timestamp unit, source name, initial X channel, and initial Y channel selections.
+2.12 Each configured input source shall have its own source type settings, buffer size, timestamp unit, source name, initial X channel, initial Y channel selections, and UDP request resend interval.
+
+2.13 If a UDP request resend interval is not configured or is disabled, UDP sources shall retain the default one-shot request behavior.
 
 ## 3. Main Window
 
@@ -162,23 +165,25 @@
 
 5.8 UDP sources shall send a configured request message to a configured host and port.
 
-5.9 UDP sources shall bind to the same local port used to send the request message and shall receive responses on that port.
+5.9 UDP sources shall be configurable to resend the configured request message every N seconds while the source is active.
 
-5.10 UDP request and response payloads shall be ASCII CSV lines terminated by `\n` or `\r\n`.
+5.10 UDP sources shall bind to the same local port used to send the request message and shall receive responses on that port.
 
-5.11 The expected maximum data rate shall be 1 kHz.
+5.11 UDP request and response payloads shall be ASCII CSV lines terminated by `\n` or `\r\n`.
 
-5.12 The application shall support multiple simultaneous live CSV data sources.
+5.12 The expected maximum data rate shall be 1 kHz.
 
-5.13 Each input source shall have an independent parser, CSV schema, circular data buffer, and raw CSV capture buffer.
+5.13 The application shall support multiple simultaneous live CSV data sources.
 
-5.14 If one source ends or fails, only that source shall stop; other sources shall continue running, and the stopped source's buffered data shall be preserved.
+5.14 Each input source shall have an independent parser, CSV schema, circular data buffer, and raw CSV capture buffer.
 
-5.15 Removing a source at runtime shall stop and dispose that source without stopping other sources.
+5.15 If one source ends or fails, only that source shall stop; other sources shall continue running, and the stopped source's buffered data shall be preserved.
 
-5.16 The application shall provide a test source type that generates live synthesized CSV data for exercising multi-source workflows without external hardware.
+5.16 Removing a source at runtime shall stop and dispose that source without stopping other sources.
 
-5.17 Test sources shall be addable from the runtime source management UI.
+5.17 The application shall provide a test source type that generates live synthesized CSV data for exercising multi-source workflows without external hardware.
+
+5.18 Test sources shall be addable from the runtime source management UI.
 
 ## 6. CSV Format
 

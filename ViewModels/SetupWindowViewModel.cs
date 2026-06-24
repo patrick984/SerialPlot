@@ -33,6 +33,9 @@ public partial class SetupWindowViewModel : ViewModelBase
     private string _udpMessage = string.Empty;
 
     [ObservableProperty]
+    private int _udpResendIntervalSeconds;
+
+    [ObservableProperty]
     private int _bufferSize = AppConfig.DefaultBufferSize;
 
     [ObservableProperty]
@@ -69,6 +72,7 @@ public partial class SetupWindowViewModel : ViewModelBase
             string.IsNullOrWhiteSpace(Host) ? null : Host.Trim(),
             Port,
             Source == SourceType.Udp ? UdpMessage : null,
+            Source == SourceType.Udp && UdpResendIntervalSeconds > 0 ? UdpResendIntervalSeconds : null,
             BufferSize,
             TimestampUnit,
             string.IsNullOrWhiteSpace(InitialX) ? null : InitialX.Trim(),
@@ -82,6 +86,7 @@ public partial class SetupWindowViewModel : ViewModelBase
             sourceConfig.Host,
             sourceConfig.Port,
             sourceConfig.UdpMessage,
+            sourceConfig.UdpResendIntervalSeconds,
             sourceConfig.BufferSize,
             sourceConfig.TimestampUnit,
             sourceConfig.InitialX,

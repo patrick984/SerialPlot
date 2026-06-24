@@ -43,8 +43,11 @@ public sealed class SetupWindowViewModelTests
         var vm = new SetupWindowViewModel
         {
             SourceName = "imu",
-            Source = SourceType.Serial,
-            SerialPort = "COM3",
+            Source = SourceType.Udp,
+            Host = "127.0.0.1",
+            Port = 55123,
+            UdpMessage = "poll",
+            UdpResendIntervalSeconds = 7,
             Baud = 115200,
             BufferSize = 1234,
             TimestampUnit = TimestampUnit.Milliseconds,
@@ -56,9 +59,11 @@ public sealed class SetupWindowViewModelTests
         var config = vm.ToConfig();
 
         Assert.Equal("imu", config.Sources[0].Name);
-        Assert.Equal(SourceType.Serial, config.Sources[0].Source);
-        Assert.Equal("COM3", config.Sources[0].SerialPort);
-        Assert.Equal(115200, config.Sources[0].Baud);
+        Assert.Equal(SourceType.Udp, config.Sources[0].Source);
+        Assert.Equal("127.0.0.1", config.Sources[0].Host);
+        Assert.Equal(55123, config.Sources[0].Port);
+        Assert.Equal("poll", config.Sources[0].UdpMessage);
+        Assert.Equal(7, config.Sources[0].UdpResendIntervalSeconds);
         Assert.Equal(1234, config.Sources[0].BufferSize);
         Assert.Equal(TimestampUnit.Milliseconds, config.Sources[0].TimestampUnit);
         Assert.Equal("time", config.Sources[0].InitialX);

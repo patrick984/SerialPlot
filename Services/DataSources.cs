@@ -23,7 +23,7 @@ public static class CsvLineSourceFactory
         SourceType.Stdin => new StandardInputLineSource(),
         SourceType.Serial => new SerialLineSource(config.SerialPort!, config.Baud!.Value),
         SourceType.Tcp => new TcpLineSource(config.Host!, config.Port!.Value),
-        SourceType.Udp => new UdpLineSource(config.Host!, config.Port!.Value, config.UdpMessage ?? string.Empty),
+        SourceType.Udp => new UdpLineSource(config.Host!, config.Port!.Value, config.UdpMessage ?? string.Empty, config.UdpResendIntervalSeconds),
         SourceType.Test => new TestCsvLineSource(),
         _ => throw new InvalidOperationException("Unsupported source type."),
     };
@@ -33,7 +33,7 @@ public static class CsvLineSourceFactory
         SourceType.Stdin => new StandardInputLineSource(),
         SourceType.Serial => new SerialLineSource(config.SerialPort!, config.Baud!.Value),
         SourceType.Tcp => new TcpLineSource(config.Host!, config.Port!.Value),
-        SourceType.Udp => new UdpLineSource(config.Host!, config.Port!.Value, config.UdpMessage ?? string.Empty),
+        SourceType.Udp => new UdpLineSource(config.Host!, config.Port!.Value, config.UdpMessage ?? string.Empty, config.UdpResendIntervalSeconds),
         SourceType.Test => new TestCsvLineSource(),
         _ => throw new InvalidOperationException("Unsupported source type."),
     };
@@ -189,7 +189,7 @@ public sealed class TcpLineSource(string host, int port) : ICsvLineSource
     }
 }
 
-public sealed class UdpLineSource(string host, int port, string message) : ICsvLineSource
+public sealed class UdpLineSource(string host, int port, string message, int? resendIntervalSeconds = null) : ICsvLineSource
 {
     private UdpClient? _client;
 
@@ -199,16 +199,26 @@ public sealed class UdpLineSource(string host, int port, string message) : ICsvL
         var endpoint = new IPEndPoint((await Dns.GetHostAddressesAsync(host, cancellationToken).ConfigureAwait(false))[0], port);
         var request = Encoding.ASCII.GetBytes(message);
         await _client.SendAsync(request, endpoint, cancellationToken).ConfigureAwait(false);
+        using var resendCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var resendTask = StartResendLoopAsync(_client, request, endpoint, resendCancellation.Token);
 
         var pending = string.Empty;
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            var result = await _client.ReceiveAsync(cancellationToken).ConfigureAwait(false);
-            pending += Encoding.ASCII.GetString(result.Buffer);
-            while (TryTakeLine(ref pending, out var line))
+            while (!cancellationToken.IsCancellationRequested)
             {
-                yield return line;
+                var result = await _client.ReceiveAsync(cancellationToken).ConfigureAwait(false);
+                pending += Encoding.ASCII.GetString(result.Buffer);
+                while (TryTakeLine(ref pending, out var line))
+                {
+                    yield return line;
+                }
             }
+        }
+        finally
+        {
+            await resendCancellation.CancelAsync().ConfigureAwait(false);
+            await resendTask.ConfigureAwait(false);
         }
     }
 
@@ -230,5 +240,31 @@ public sealed class UdpLineSource(string host, int port, string message) : ICsvL
         line = pending[..index].TrimEnd('\r');
         pending = pending[(index + 1)..];
         return true;
+    }
+
+    private Task StartResendLoopAsync(UdpClient client, byte[] request, IPEndPoint endpoint, CancellationToken cancellationToken)
+    {
+        if (resendIntervalSeconds is not > 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(resendIntervalSeconds.Value));
+            try
+            {
+                while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    await client.SendAsync(request, endpoint, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+        }, cancellationToken);
     }
 }

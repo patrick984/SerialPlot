@@ -38,6 +38,54 @@ public sealed class CliConfigParserTests
     }
 
     [Fact]
+    public void UdpArgsParseResendInterval()
+    {
+        var result = CliConfigParser.Parse([
+            "--source", "udp",
+            "--host", "127.0.0.1",
+            "--port", "5000",
+            "--udp-message", "poll",
+            "--udp-resend-interval", "7",
+        ]);
+
+        Assert.True(result.IsComplete);
+        Assert.Equal(SourceType.Udp, result.Config.Source);
+        Assert.Equal(7, result.Config.UdpResendIntervalSeconds);
+        Assert.Equal(7, result.Config.Sources[0].UdpResendIntervalSeconds);
+    }
+
+    [Fact]
+    public void ZeroUdpResendIntervalDisablesResend()
+    {
+        var result = CliConfigParser.Parse([
+            "--source", "udp",
+            "--host", "127.0.0.1",
+            "--port", "5000",
+            "--udp-message", "poll",
+            "--udp-resend-interval", "0",
+        ]);
+
+        Assert.True(result.IsComplete);
+        Assert.Null(result.Config.UdpResendIntervalSeconds);
+        Assert.Null(result.Config.Sources[0].UdpResendIntervalSeconds);
+    }
+
+    [Fact]
+    public void NegativeUdpResendIntervalIsInvalid()
+    {
+        var result = CliConfigParser.Parse([
+            "--source", "udp",
+            "--host", "127.0.0.1",
+            "--port", "5000",
+            "--udp-message", "poll",
+            "--udp-resend-interval", "-1",
+        ]);
+
+        Assert.False(result.IsComplete);
+        Assert.Contains("udp-resend-interval", result.Error);
+    }
+
+    [Fact]
     public void SerialRequiresPortAndBaud()
     {
         var result = CliConfigParser.Parse(["--source", "serial", "--serial-port", "COM3"]);
@@ -70,7 +118,7 @@ public sealed class CliConfigParserTests
     {
         var result = CliConfigParser.Parse([
             "--source-spec", "name=imu;type=serial;serial-port=COM3;baud=115200;buffer-size=10;x=t;y-left=ax,ay",
-            "--source-spec", "name=gps;type=tcp;host=127.0.0.1;port=5000;x=time;y-right=lat",
+            "--source-spec", "name=gps;type=udp;host=127.0.0.1;port=5000;udp-message=poll;udp-resend-interval=3;x=time;y-right=lat",
             "--source-spec", "name=test;type=test;x=time;y-left=sine",
         ]);
 
@@ -80,7 +128,8 @@ public sealed class CliConfigParserTests
         Assert.Equal(SourceType.Serial, result.Config.Sources[0].Source);
         Assert.Equal(["ax", "ay"], result.Config.Sources[0].InitialYLeft);
         Assert.Equal("gps", result.Config.Sources[1].Name);
-        Assert.Equal(SourceType.Tcp, result.Config.Sources[1].Source);
+        Assert.Equal(SourceType.Udp, result.Config.Sources[1].Source);
+        Assert.Equal(3, result.Config.Sources[1].UdpResendIntervalSeconds);
         Assert.Equal(["lat"], result.Config.Sources[1].InitialYRight);
         Assert.Equal(SourceType.Test, result.Config.Sources[2].Source);
     }

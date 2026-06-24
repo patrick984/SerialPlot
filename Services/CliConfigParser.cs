@@ -85,6 +85,7 @@ public static class CliConfigParser
                 first.Host,
                 first.Port,
                 first.UdpMessage,
+                first.UdpResendIntervalSeconds,
                 first.BufferSize,
                 first.TimestampUnit,
                 first.InitialX,
@@ -122,6 +123,11 @@ public static class CliConfigParser
             return Invalid("--port must be between 1 and 65535.");
         }
 
+        if (!TryGetNonNegativeInt(values, "--udp-resend-interval", null, out var udpResendIntervalSeconds))
+        {
+            return Invalid("--udp-resend-interval must be a non-negative integer.");
+        }
+
         var config = new AppConfig(
             source,
             Last(values, "--serial-port"),
@@ -129,6 +135,7 @@ public static class CliConfigParser
             Last(values, "--host"),
             port,
             Last(values, "--udp-message"),
+            NormalizeOptionalInterval(udpResendIntervalSeconds),
             bufferSize ?? AppConfig.DefaultBufferSize,
             unit,
             Last(values, "--x"),
@@ -162,6 +169,7 @@ public static class CliConfigParser
             SourceType.Udp when string.IsNullOrWhiteSpace(config.Host) => "UDP source requires a host.",
             SourceType.Udp when config.Port is null => "UDP source requires a port.",
             SourceType.Udp when config.UdpMessage is null => "UDP source requires a request message.",
+            SourceType.Udp when config.UdpResendIntervalSeconds is < 0 => "UDP resend interval must be a non-negative integer.",
             SourceType.Udp => null,
             SourceType.Test => null,
             _ => "Unsupported source type.",
@@ -176,6 +184,7 @@ public static class CliConfigParser
         "--host",
         "--port",
         "--udp-message",
+        "--udp-resend-interval",
         "--buffer-size",
         "--timestamp-unit",
         "--x",
@@ -243,6 +252,25 @@ public static class CliConfigParser
         }
 
         if (int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value > 0)
+        {
+            parsed = value;
+            return true;
+        }
+
+        parsed = null;
+        return false;
+    }
+
+    private static bool TryGetNonNegativeInt(Dictionary<string, List<string>> values, string key, int? defaultValue, out int? parsed)
+    {
+        var raw = Last(values, key);
+        if (raw is null)
+        {
+            parsed = defaultValue;
+            return true;
+        }
+
+        if (int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value >= 0)
         {
             parsed = value;
             return true;
@@ -325,6 +353,12 @@ public static class CliConfigParser
             return false;
         }
 
+        if (!TryParseNonNegativeInt(values, "udp-resend-interval", null, out var udpResendIntervalSeconds))
+        {
+            error = "--source-spec udp-resend-interval must be a non-negative integer.";
+            return false;
+        }
+
         config = new InputSourceConfig(
             values.GetValueOrDefault("name") is { Length: > 0 } name ? name : $"Source {ordinal}",
             source,
@@ -333,6 +367,7 @@ public static class CliConfigParser
             values.GetValueOrDefault("host"),
             port,
             values.GetValueOrDefault("udp-message"),
+            NormalizeOptionalInterval(udpResendIntervalSeconds),
             bufferSize ?? AppConfig.DefaultBufferSize,
             unit.Value,
             values.GetValueOrDefault("x"),
@@ -362,6 +397,7 @@ public static class CliConfigParser
             SourceType.Udp when string.IsNullOrWhiteSpace(config.Host) => $"Source '{config.Name}' UDP source requires a host.",
             SourceType.Udp when config.Port is null => $"Source '{config.Name}' UDP source requires a port.",
             SourceType.Udp when config.UdpMessage is null => $"Source '{config.Name}' UDP source requires a request message.",
+            SourceType.Udp when config.UdpResendIntervalSeconds is < 0 => $"Source '{config.Name}' UDP resend interval must be a non-negative integer.",
             SourceType.Udp => null,
             SourceType.Test => null,
             _ => $"Source '{config.Name}' has an unsupported source type.",
@@ -377,6 +413,24 @@ public static class CliConfigParser
         }
 
         if (int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value > 0)
+        {
+            parsed = value;
+            return true;
+        }
+
+        parsed = null;
+        return false;
+    }
+
+    private static bool TryParseNonNegativeInt(Dictionary<string, string> values, string key, int? defaultValue, out int? parsed)
+    {
+        if (!values.TryGetValue(key, out var raw))
+        {
+            parsed = defaultValue;
+            return true;
+        }
+
+        if (int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value >= 0)
         {
             parsed = value;
             return true;
@@ -403,4 +457,7 @@ public static class CliConfigParser
                 .Where(x => x.Length > 0)
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
+
+    private static int? NormalizeOptionalInterval(int? value)
+        => value is > 0 ? value : null;
 }

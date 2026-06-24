@@ -43,7 +43,7 @@ Each `InputSourceConfig` defines:
 
 - display name
 - source type
-- serial, TCP, or UDP connection details
+- serial, TCP, or UDP connection details, including optional UDP resend interval
 - retained buffer size
 - timestamp parsing mode
 - optional initial X channel
@@ -57,7 +57,7 @@ CLI parsing supports either classic single-source options or repeated `--source-
 
 `SetupWindow.axaml` is a fixed-size configuration form. It binds to `SetupWindowViewModel`, which exposes source type, connection settings, buffer size, timestamp unit, and optional initial channel selections.
 
-The form conditionally shows serial, network, and UDP request fields based on `SourceType`. Validation reuses `CliConfigParser.Validate`, keeping CLI and UI requirements aligned.
+The form conditionally shows serial, network, and UDP request fields based on `SourceType`. UDP sources may also configure a request resend interval, where zero disables periodic resend. Validation reuses `CliConfigParser.Validate`, keeping CLI and UI requirements aligned.
 
 ### Main Window
 
@@ -112,7 +112,7 @@ All sources implement `ICsvLineSource`, which exposes `ReadLinesAsync(Cancellati
 - `StandardInputLineSource` reads UTF-8 stdin.
 - `SerialLineSource` wraps `System.IO.Ports.SerialPort` and reads newline-delimited rows.
 - `TcpLineSource` connects to a TCP endpoint and reads ASCII lines.
-- `UdpLineSource` binds to the configured port, sends an optional request message to the remote endpoint, then splits received datagrams into newline-delimited rows.
+- `UdpLineSource` binds to an ephemeral local port, sends an optional request message to the remote endpoint, optionally resends it at the configured interval, then splits received datagrams into newline-delimited rows.
 - `TestCsvLineSource` generates time, sine, sawtooth, noise, and random-walk channels at 1000 Hz.
 
 This interface keeps transport concerns separate from CSV parsing and UI state.

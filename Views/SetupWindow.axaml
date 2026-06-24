@@ -46,6 +46,13 @@
         <StackPanel IsVisible="{Binding ShowUdpMessage}" Spacing="4">
           <TextBlock Text="UDP request message" Classes="label"/>
           <TextBox Text="{Binding UdpMessage}"/>
+
+          <TextBlock Text="UDP resend interval (seconds)" Classes="label"/>
+          <NumericUpDown Value="{Binding UdpResendIntervalSeconds}"
+                         Minimum="0"
+                         Maximum="86400"
+                         Increment="1"
+                         Watermark="0 disables resend"/>
         </StackPanel>
       </StackPanel>
 

@@ -28,6 +28,7 @@ public sealed record AppConfig(
     string? Host,
     int? Port,
     string? UdpMessage,
+    int? UdpResendIntervalSeconds,
     int BufferSize,
     TimestampUnit TimestampUnit,
     string? InitialX,
@@ -45,6 +46,7 @@ public sealed record AppConfig(
             Host,
             Port,
             UdpMessage,
+            UdpResendIntervalSeconds,
             BufferSize,
             TimestampUnit,
             InitialX,
@@ -54,6 +56,7 @@ public sealed record AppConfig(
 
     public static AppConfig Defaults() => new(
         SourceType.Stdin,
+        null,
         null,
         null,
         null,
@@ -74,6 +77,7 @@ public sealed record InputSourceConfig(
     string? Host,
     int? Port,
     string? UdpMessage,
+    int? UdpResendIntervalSeconds,
     int BufferSize,
     TimestampUnit TimestampUnit,
     string? InitialX,

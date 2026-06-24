@@ -162,6 +162,7 @@ public sealed class MainWindowViewModelTests
             null,
             null,
             null,
+            null,
             AppConfig.DefaultBufferSize,
             TimestampUnit.Auto,
             null,

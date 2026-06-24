@@ -4,10 +4,10 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 
 ## Validation Summary
 
-- Automated test traceability: PASS. All 75 existing xUnit test methods are mapped to at least one parent requirement in the automated test traceability table. The current suite executes 79 cases because theories expand into multiple cases.
+- Automated test traceability: PASS. All 80 existing xUnit test methods are mapped to at least one parent requirement in the automated test traceability table. The current suite executes 84 cases because theories expand into multiple cases.
 - Requirement test-case coverage: PASS. Every requirement has at least one linked verification case.
 - Automated-only requirement coverage: INCOMPLETE. Several UI, platform, packaging, hardware, and workflow requirements are covered by manual or inspection test cases because no direct automated test exists yet.
-- Execution status: `dotnet test Tests/SerialPlot.Tests.csproj --no-restore` passed with 79 total cases, 0 failures, and 0 skipped.
+- Execution status: `dotnet test Tests/SerialPlot.Tests.csproj --no-restore` passed with 84 total cases, 0 failures, and 0 skipped.
 
 ## Verification Methods
 
@@ -26,6 +26,7 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | MAN-CHANNEL-001 | Manual | Stream data, change X and Y selections while running, assign traces to left/right axes, and confirm missing initial selections are ignored. |
 | MAN-PLOT-001 | Manual | Verify scrolling, manual pan/zoom, autoscale toggles, axis-specific autoscale disablement, hover overlay text, PNG export, and single-source CSV save. |
 | MAN-SOURCE-001 | Manual | Verify stdin, serial, TCP, UDP, and test sources with representative live streams. |
+| MAN-UDP-RESEND-001 | Manual | Configure a UDP source with a resend interval and confirm the request message is resent every configured N seconds while active; confirm disabled or unset interval sends only once at startup. |
 | MAN-MULTISOURCE-001 | Manual | Start multiple sources, add and remove a source at runtime, stop/fail one source, and confirm other sources continue and buffered data remains visible. |
 | MAN-MULTISOURCE-EXPORT-001 | Manual | Save CSV capture with multiple active sources and confirm one exact raw CSV file is written per source. |
 | MAN-CSV-LINE-001 | Manual | Feed newline-terminated CSV records, including CRLF, and confirm complete records are consumed; confirm quoted multiline fields are not required. |
@@ -50,7 +51,8 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | 2.9 | AUT `UserPreferencesServiceTests.ValidJsonRestoresXAutoscaleMode`, AUT `UserPreferencesServiceTests.SteppedPanModeLoadsAndSaves`, AUT `UserPreferencesServiceTests.SaveWritesSelectedModeAndFutureSpace` |
 | 2.10 | AUT `UserPreferencesServiceTests.MissingFileReturnsDefaults`, AUT `UserPreferencesServiceTests.FutureSpaceSecondsClampsOutOfRangeValues`, AUT `SteppedXAxisViewportTests.UsesCustomFutureSpaceSeconds`, AUT `MainWindowViewModelTests.FutureSpaceControlIsEnabledOnlyForSteppedExpansion` |
 | 2.11 | AUT `CliConfigParserTests.RepeatSourceSpecsCreateIndependentSources`, AUT `CliConfigParserTests.InvalidSourceSpecReportsPerSourceValidation` |
-| 2.12 | AUT `CliConfigParserTests.RepeatSourceSpecsCreateIndependentSources`, AUT `SetupWindowViewModelTests.ToConfigMapsSelectedSourceFields` |
+| 2.12 | AUT `CliConfigParserTests.RepeatSourceSpecsCreateIndependentSources`, AUT `SetupWindowViewModelTests.ToConfigMapsSelectedSourceFields`, AUT `CliConfigParserTests.UdpArgsParseResendInterval`, MAN-UDP-RESEND-001 |
+| 2.13 | AUT `CliConfigParserTests.ZeroUdpResendIntervalDisablesResend`, AUT `TestCsvLineSourceTests.UdpLineSourceSendsInitialRequestOnlyWhenResendDisabled`, MAN-UDP-RESEND-001 |
 | 3.1 | INS-PLATFORM-001, MAN-MAIN-UI-001 |
 | 3.2 | MAN-MAIN-UI-001 |
 | 3.3 | MAN-MAIN-UI-001, MAN-CHANNEL-001 |
@@ -105,15 +107,16 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | 5.6 | MAN-SOURCE-001 |
 | 5.7 | AUT `CliConfigParserTests.TcpRequiresHostAndPort`, MAN-SOURCE-001 |
 | 5.8 | AUT `SetupWindowViewModelTests.VisibilityFlagsFollowSelectedSource`, MAN-SOURCE-001 |
-| 5.9 | MAN-SOURCE-001 |
-| 5.10 | MAN-SOURCE-001, MAN-CSV-LINE-001 |
-| 5.11 | AUT `TestCsvLineSourceTests.IndependentSourcesProduceDifferentRandomWalks`, MAN-SOURCE-001 |
-| 5.12 | AUT `CliConfigParserTests.RepeatSourceSpecsCreateIndependentSources`, AUT `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection`, MAN-MULTISOURCE-001 |
-| 5.13 | AUT `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection`, AUT `MainWindowViewModelTests.SelectedTracesIncludeSourceIdentity`, MAN-MULTISOURCE-001 |
-| 5.14 | MAN-MULTISOURCE-001 |
+| 5.9 | AUT `CliConfigParserTests.UdpArgsParseResendInterval`, AUT `TestCsvLineSourceTests.UdpLineSourceResendsRequestAtConfiguredInterval`, MAN-UDP-RESEND-001 |
+| 5.10 | MAN-SOURCE-001 |
+| 5.11 | MAN-SOURCE-001, MAN-CSV-LINE-001 |
+| 5.12 | AUT `TestCsvLineSourceTests.IndependentSourcesProduceDifferentRandomWalks`, MAN-SOURCE-001 |
+| 5.13 | AUT `CliConfigParserTests.RepeatSourceSpecsCreateIndependentSources`, AUT `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection`, MAN-MULTISOURCE-001 |
+| 5.14 | AUT `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection`, AUT `MainWindowViewModelTests.SelectedTracesIncludeSourceIdentity`, MAN-MULTISOURCE-001 |
 | 5.15 | MAN-MULTISOURCE-001 |
-| 5.16 | AUT `CliConfigParserTests.TestSourceRequiresNoConnectionSettings`, AUT `TestCsvLineSourceTests.IndependentSourcesProduceDifferentRandomWalks` |
-| 5.17 | MAN-MAIN-UI-001 |
+| 5.16 | MAN-MULTISOURCE-001 |
+| 5.17 | AUT `CliConfigParserTests.TestSourceRequiresNoConnectionSettings`, AUT `TestCsvLineSourceTests.IndependentSourcesProduceDifferentRandomWalks` |
+| 5.18 | MAN-MAIN-UI-001 |
 | 6.1 | AUT `CsvGen.CsvGeneratorTests.WritesHeaderAndFixedSampleRowsAcceptedBySerialPlotParser`, AUT `CsvStreamParserTests.HeaderRejectsBlankAndDuplicateNames` |
 | 6.2 | AUT `CsvStreamParserTests.HeaderRejectsBlankAndDuplicateNames`, MAN-CHANNEL-001 |
 | 6.3 | AUT `CsvStreamParserTests.HeaderRejectsBlankAndDuplicateNames` |
@@ -157,7 +160,9 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | `SteppedXAxisViewportTests.PanModeDoesNotRetargetFromAnimationIntermediateRange` | 4.9.3 |
 | `SteppedXAxisViewportTests.ResetClearsCurrentTarget` | 4.5 |
 | `SteppedXAxisViewportTests.InvalidEstimateFallsBackToSmallPositiveSpan` | 4.7 |
-| `TestCsvLineSourceTests.IndependentSourcesProduceDifferentRandomWalks` | 5.11, 5.16 |
+| `TestCsvLineSourceTests.IndependentSourcesProduceDifferentRandomWalks` | 5.12, 5.17 |
+| `TestCsvLineSourceTests.UdpLineSourceSendsInitialRequestOnlyWhenResendDisabled` | 2.13 |
+| `TestCsvLineSourceTests.UdpLineSourceResendsRequestAtConfiguredInterval` | 5.9 |
 | `SetupWindowViewModelTests.VisibilityFlagsFollowSelectedSource` | 2.5, 5.2, 5.8 |
 | `SetupWindowViewModelTests.ChangingSourceRaisesVisibilityNotifications` | 2.5 |
 | `SetupWindowViewModelTests.ToConfigMapsSelectedSourceFields` | 2.5, 2.7, 2.12, 5.4, 7.8 |
@@ -169,9 +174,9 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | `MainWindowViewModelTests.SelectingXAutoscaleModeOptionUpdatesMode` | 3.10, 4.5 |
 | `MainWindowViewModelTests.SettingXAutoscaleModeUpdatesSelectedOption` | 3.10, 4.5 |
 | `MainWindowViewModelTests.FutureSpaceControlIsEnabledOnlyForSteppedExpansion` | 2.10 |
-| `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection` | 3.11, 3.12, 4.25, 5.12, 5.13 |
-| `MainWindowViewModelTests.SelectedTracesIncludeSourceIdentity` | 3.8, 4.23, 4.24, 5.13 |
-| `MainWindowViewModelTests.AppendThrottlingPreservesDirtySources` | 4.3, 5.12 |
+| `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection` | 3.11, 3.12, 4.25, 5.13, 5.14 |
+| `MainWindowViewModelTests.SelectedTracesIncludeSourceIdentity` | 3.8, 4.23, 4.24, 5.14 |
+| `MainWindowViewModelTests.AppendThrottlingPreservesDirtySources` | 4.3, 5.13 |
 | `MainWindowViewModelTests.PausedAppendIsRetainedUntilResume` | 4.12, 4.13 |
 | `PlotBufferTests.CircularBufferCapsRowsAndPreservesOrder` | 4.4 |
 | `PlotBufferTests.CircularBufferPreservesOrderAcrossMultipleWraps` | 4.4 |
@@ -209,10 +214,13 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | `CliConfigParserTests.NoArgsRequestsSetup` | 2.2, 2.6 |
 | `CliConfigParserTests.NoArgsWithRedirectedStdinStartsStdinSource` | 5.3 |
 | `CliConfigParserTests.StdinArgsAreComplete` | 2.1, 2.5, 5.3, 7.8 |
+| `CliConfigParserTests.UdpArgsParseResendInterval` | 2.12, 5.9 |
+| `CliConfigParserTests.ZeroUdpResendIntervalDisablesResend` | 2.13 |
+| `CliConfigParserTests.NegativeUdpResendIntervalIsInvalid` | 2.12 |
 | `CliConfigParserTests.SerialRequiresPortAndBaud` | 2.3, 5.2, 5.4 |
 | `CliConfigParserTests.TcpRequiresHostAndPort` | 2.3, 5.2, 5.7 |
-| `CliConfigParserTests.TestSourceRequiresNoConnectionSettings` | 5.16 |
-| `CliConfigParserTests.RepeatSourceSpecsCreateIndependentSources` | 2.1, 2.11, 2.12, 5.12 |
+| `CliConfigParserTests.TestSourceRequiresNoConnectionSettings` | 5.17 |
+| `CliConfigParserTests.RepeatSourceSpecsCreateIndependentSources` | 2.1, 2.11, 2.12, 5.13 |
 | `CliConfigParserTests.InvalidSourceSpecReportsPerSourceValidation` | 2.11 |
 | `ChannelViewModelTests.TraceBrushesCanBeAssignedAndClearedPerAxis` | 3.8 |
 | `CsvGen.CsvGenOptionsParserTests.DefaultsProvideUsefulLiveChannels` | 9.1 |
@@ -227,6 +235,6 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 
 The following requirements are covered only by manual or inspection cases in this VCRM and do not currently have direct automated test coverage:
 
-1.1, 1.2, 1.3, 1.4, 2.4, 2.8, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.9, 3.13, 4.1, 4.6, 4.10, 4.11, 4.15, 4.16, 4.18, 4.19, 4.20, 4.22, 4.26, 4.27, 4.28, 5.5, 5.6, 5.8, 5.9, 5.10, 5.14, 5.15, 5.17, 6.4, 6.5, 6.6, 6.9, 7.5, 7.7, 8.1, 8.2, 9.2.
+1.1, 1.2, 1.3, 1.4, 2.4, 2.8, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.9, 3.13, 4.1, 4.6, 4.10, 4.11, 4.15, 4.16, 4.18, 4.19, 4.20, 4.22, 4.26, 4.27, 4.28, 5.5, 5.6, 5.10, 5.11, 5.15, 5.16, 5.18, 6.4, 6.5, 6.6, 6.9, 7.5, 7.7, 8.1, 8.2, 9.2.
 
 Requirements 4.27 and 4.28 are especially important to review because the current design document describes a single ScottPlot plot area, while these requirements call for stacked plot panels and per-trace placement.
