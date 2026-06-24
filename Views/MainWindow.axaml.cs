@@ -109,8 +109,10 @@ public partial class MainWindow : Window
         Plot.Plot.Axes.Right.Label.Text = "Right";
         Plot.Plot.Axes.Right.IsVisible = true;
         Plot.Plot.ShowLegend(Alignment.UpperRight);
-        Plot.Plot.Legend.Margin = new PixelPadding(0, 12, 8, 0);
+        Plot.Plot.Legend.Margin = new PixelPadding(0, 8, 8, 0);
         Plot.Plot.Legend.Padding = new PixelPadding(8, 8, 8, 8);
+        Plot.Plot.Legend.SymbolHeight = 20;
+        Plot.Plot.Legend.InterItemPadding = new PixelPadding(0, 0, 4, 0);
         _steppedXAxisViewport.Reset();
         ResetXRangeAnimation();
         HideCursorOverlay();
