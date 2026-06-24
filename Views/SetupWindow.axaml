@@ -27,6 +27,11 @@
         <TextBlock Text="Source" Classes="label"/>
         <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Source}"/>
 
+        <TextBlock Text="Recent settings" Classes="label" IsVisible="{Binding HasRecentSetups}"/>
+        <ComboBox ItemsSource="{Binding RecentSetups}"
+                  SelectedItem="{Binding SelectedRecentSetup}"
+                  IsVisible="{Binding HasRecentSetups}"/>
+
         <StackPanel IsVisible="{Binding ShowSerialSettings}" Spacing="4">
           <TextBlock Text="Serial port" Classes="label"/>
           <TextBox Text="{Binding SerialPort}" Watermark="COM3 or /dev/ttyUSB0"/>

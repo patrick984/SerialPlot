@@ -4,10 +4,10 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 
 ## Validation Summary
 
-- Automated test traceability: PASS. All 82 existing xUnit test methods are mapped to at least one parent requirement in the automated test traceability table. The current suite executes 86 cases because theories expand into multiple cases.
+- Automated test traceability: PASS. All 91 existing xUnit test methods are mapped to at least one parent requirement in the automated test traceability table. The current suite executes 95 cases because theories expand into multiple cases.
 - Requirement test-case coverage: PASS. Every requirement has at least one linked verification case.
 - Automated-only requirement coverage: INCOMPLETE. Several UI, platform, packaging, hardware, and workflow requirements are covered by manual or inspection test cases because no direct automated test exists yet.
-- Execution status: `dotnet test Tests/SerialPlot.Tests.csproj --no-restore` passed with 86 total cases, 0 failures, and 0 skipped.
+- Execution status: `dotnet test Tests/SerialPlot.Tests.csproj --no-restore` passed with 95 total cases, 0 failures, and 0 skipped.
 
 ## Verification Methods
 
@@ -22,6 +22,7 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | INS-PLATFORM-001 | Inspection | Inspect project files and package references to confirm Avalonia, ScottPlot, .NET target, and cross-platform framework usage. |
 | MAN-PUBLISH-001 | Manual | Publish self-contained single-file builds for Windows, macOS, and Linux runtime identifiers and confirm each artifact starts. |
 | MAN-SETUP-001 | Manual | Launch with no CLI args and with partial CLI args; verify setup dialog appears, validates required settings, and starts the main window after valid input. |
+| MAN-RECENT-SETUP-001 | Manual | Create recent setup entries for multiple source types; verify no-arg setup pre-fills the last used source, the recent-settings selector is filtered by source type, selecting an entry applies all fields, runtime Add Source updates history, and incomplete CLI startup ignores history. |
 | MAN-MAIN-UI-001 | Manual | Launch a test source and verify the main window contains the plot, right channel panel, channel list, source selector, axis selectors, status, error band, and toolbar controls. |
 | MAN-CHANNEL-001 | Manual | Stream data, change X and Y selections while running, assign traces to left/right axes, and confirm missing initial selections are ignored. |
 | MAN-PLOT-001 | Manual | Verify scrolling, manual pan/zoom, autoscale toggles, axis-specific autoscale disablement, hover overlay text, PNG export, and single-source CSV save. |
@@ -53,6 +54,13 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | 2.11 | AUT `CliConfigParserTests.RepeatSourceSpecsCreateIndependentSources`, AUT `CliConfigParserTests.InvalidSourceSpecReportsPerSourceValidation` |
 | 2.12 | AUT `CliConfigParserTests.RepeatSourceSpecsCreateIndependentSources`, AUT `SetupWindowViewModelTests.ToConfigMapsSelectedSourceFields`, AUT `CliConfigParserTests.UdpArgsParseResendInterval`, MAN-UDP-RESEND-001 |
 | 2.13 | AUT `CliConfigParserTests.ZeroUdpResendIntervalDisablesResend`, AUT `TestCsvLineSourceTests.UdpLineSourceSendsInitialRequestOnlyWhenResendDisabled`, MAN-UDP-RESEND-001 |
+| 2.14 | AUT `RecentSetupServiceTests.RecentEntriesAreCappedPerSourceType`, MAN-RECENT-SETUP-001 |
+| 2.15 | AUT `SetupWindowViewModelTests.SelectingRecentEntryAppliesAllSetupFields`, AUT `RecentSetupServiceTests.SaveAndLoadRestoresLastSourceAndEntries`, MAN-RECENT-SETUP-001 |
+| 2.16 | AUT `SetupWindowViewModelTests.RecentHistoryPrefillsLastUsedSourceAndMostRecentEntry`, MAN-RECENT-SETUP-001 |
+| 2.17 | AUT `SetupWindowViewModelTests.RecentHistoryDropdownIsFilteredBySourceType`, AUT `SetupWindowViewModelTests.SelectingRecentEntryAppliesAllSetupFields`, MAN-RECENT-SETUP-001 |
+| 2.18 | AUT `RecentSetupServiceTests.RememberMovesMatchingEntryToMostRecent`, MAN-RECENT-SETUP-001 |
+| 2.19 | AUT `SetupWindowViewModelTests.InitialConfigIgnoresRecentHistory`, MAN-RECENT-SETUP-001 |
+| 2.20 | AUT `RecentSetupServiceTests.MissingFileReturnsEmptyHistory`, AUT `RecentSetupServiceTests.InvalidJsonReturnsEmptyHistory` |
 | 3.1 | INS-PLATFORM-001, MAN-MAIN-UI-001 |
 | 3.2 | MAN-MAIN-UI-001 |
 | 3.3 | MAN-MAIN-UI-001, MAN-CHANNEL-001 |
@@ -166,6 +174,10 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | `SetupWindowViewModelTests.VisibilityFlagsFollowSelectedSource` | 2.5, 5.2, 5.8 |
 | `SetupWindowViewModelTests.ChangingSourceRaisesVisibilityNotifications` | 2.5 |
 | `SetupWindowViewModelTests.ToConfigMapsSelectedSourceFields` | 2.5, 2.7, 2.12, 5.4, 7.8 |
+| `SetupWindowViewModelTests.RecentHistoryPrefillsLastUsedSourceAndMostRecentEntry` | 2.16 |
+| `SetupWindowViewModelTests.RecentHistoryDropdownIsFilteredBySourceType` | 2.17 |
+| `SetupWindowViewModelTests.SelectingRecentEntryAppliesAllSetupFields` | 2.15, 2.17 |
+| `SetupWindowViewModelTests.InitialConfigIgnoresRecentHistory` | 2.19 |
 | `VisiblePointMarkerPolicyTests.ShowsMarkersWhenVisiblePointCountIsBelowThreshold` | 4.17 |
 | `VisiblePointMarkerPolicyTests.HidesMarkersWhenVisiblePointCountReachesThreshold` | 4.18.1 |
 | `VisiblePointMarkerPolicyTests.IgnoresInvalidAndOutsideVisibleRangePoints` | 4.18.1 |
@@ -207,6 +219,11 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | `UserPreferencesServiceTests.FutureSpaceSecondsClampsOutOfRangeValues` | 2.10 |
 | `UserPreferencesServiceTests.SteppedPanModeLoadsAndSaves` | 2.9 |
 | `UserPreferencesServiceTests.SaveWritesSelectedModeAndFutureSpace` | 2.9 |
+| `RecentSetupServiceTests.MissingFileReturnsEmptyHistory` | 2.20 |
+| `RecentSetupServiceTests.InvalidJsonReturnsEmptyHistory` | 2.20 |
+| `RecentSetupServiceTests.SaveAndLoadRestoresLastSourceAndEntries` | 2.15 |
+| `RecentSetupServiceTests.RememberMovesMatchingEntryToMostRecent` | 2.18 |
+| `RecentSetupServiceTests.RecentEntriesAreCappedPerSourceType` | 2.14 |
 | `XRangeAnimatorTests.TickInterpolatesWithEaseOutAndCompletesAtTarget` | 4.9.2 |
 | `XRangeAnimatorTests.ResetClearsActiveAnimation` | 4.9.2 |
 | `CsvStreamParserTests.HeaderRejectsBlankAndDuplicateNames` | 4.2, 6.1, 6.2, 6.3 |

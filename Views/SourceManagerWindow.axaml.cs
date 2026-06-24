@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using SerialPlot.Services;
 using SerialPlot.ViewModels;
 
 namespace SerialPlot.Views;
@@ -18,7 +19,10 @@ public partial class SourceManagerWindow : Window
             return;
         }
 
-        var setup = new SetupWindow();
+        var recentSetupService = new RecentSetupService();
+        var setup = new SetupWindow(
+            new SetupWindowViewModel(null, await recentSetupService.LoadAsync()),
+            recentSetupService);
         await setup.ShowDialog(this);
         if (setup.Config is { } config)
         {

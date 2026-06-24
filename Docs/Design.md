@@ -27,7 +27,7 @@ The codebase follows an MVVM shape for application state and user choices, with 
 
 `Program.Main` creates the Avalonia app and starts a classic desktop lifetime. During framework initialization, `App.OnFrameworkInitializationCompleted` calls `CliConfigParser.Parse`.
 
-If CLI arguments are complete, `App` opens `MainWindow` with a `MainWindowViewModel`. If no complete configuration is available, it opens `SetupWindow` first. The setup window builds an `AppConfig`; closing it without a config shuts the app down, while a valid config opens the main window.
+If CLI arguments are complete, `App` opens `MainWindow` with a `MainWindowViewModel`. If no complete configuration is available, it opens `SetupWindow` first. With no startup arguments, the setup window loads recent setup history and pre-fills the form from the last used source type. With incomplete startup arguments, recent setup history is ignored and the parsed CLI/default values are shown with the validation error. Closing setup without a config shuts the app down, while a valid config opens the main window.
 
 When standard input is redirected and no arguments are supplied, the parser treats stdin as a complete source. This supports shell pipelines such as:
 
@@ -51,13 +51,15 @@ Each `InputSourceConfig` defines:
 
 CLI parsing supports either classic single-source options or repeated `--source-spec` values for multiple sources.
 
+Recent setup history is stored separately from `AppConfig`. `RecentSetupHistory` keeps the last used source type and up to five complete setup entries per source type. `RecentSetupService` loads invalid or missing history as empty and saves accepted setup entries after initial setup and runtime Add Source.
+
 ## UI Structure
 
 ### Setup Window
 
-`SetupWindow.axaml` is a fixed-size configuration form. It binds to `SetupWindowViewModel`, which exposes source type, connection settings, buffer size, timestamp unit, and optional initial channel selections.
+`SetupWindow.axaml` is a fixed-size configuration form. It binds to `SetupWindowViewModel`, which exposes source type, recent setup entries, connection settings, buffer size, timestamp unit, and optional initial channel selections.
 
-The form conditionally shows serial, network, and UDP request fields based on `SourceType`. UDP sources may also configure a request resend interval, where zero disables periodic resend. Validation reuses `CliConfigParser.Validate`, keeping CLI and UI requirements aligned.
+The form conditionally shows serial, network, and UDP request fields based on `SourceType`. UDP sources may also configure a request resend interval, where zero disables periodic resend. When recent history is enabled, the form shows a recent-settings dropdown filtered to the selected source type; choosing an entry applies all saved setup fields. Validation reuses `CliConfigParser.Validate`, keeping CLI and UI requirements aligned.
 
 ### Main Window
 
@@ -206,6 +208,8 @@ Source reading runs on background tasks. Mutable buffer state is protected by `_
 ## Persistence
 
 `UserPreferencesService` stores UI preferences for X autoscale mode and stepped future space. Preferences are loaded before sources start so initial plot behavior reflects saved settings. Preference save failures are intentionally ignored, keeping plotting functional when settings cannot be written.
+
+`RecentSetupService` stores recent setup entries in `recent-setups.json` under the SerialPlot application data directory. This history is used only to pre-fill setup forms and is not a saved project format. Missing, corrupt, or unwritable history does not block setup or plotting.
 
 ## Error Handling
 

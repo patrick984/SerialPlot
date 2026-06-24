@@ -18,7 +18,7 @@
 
 2.3 If some command-line options are specified but required settings are missing, the application shall show the setup dialog.
 
-2.4 The setup dialog is required only for the initial runtime configuration. Saved/reusable configuration files are not required for the initial version, except for persisted UI preferences explicitly required elsewhere in this document.
+2.4 The setup dialog shall support persisted recent setup history for pre-filling source configuration fields, but full saved project/configuration files are not required for the initial version.
 
 2.5 The configurable source settings shall include:
 
@@ -50,6 +50,20 @@
 2.12 Each configured input source shall have its own source type settings, buffer size, timestamp unit, source name, initial X channel, initial Y channel selections, and UDP request resend interval.
 
 2.13 If a UDP request resend interval is not configured or is disabled, UDP sources shall retain the default one-shot request behavior.
+
+2.14 The application shall remember up to five recent setup entries per source type.
+
+2.15 A recent setup entry shall include all setup fields: source name, source type, connection fields, UDP request message, UDP request resend interval, circular buffer point count, Unix timestamp unit, initial X channel selection, initial left Y channel selections, and initial right Y channel selections.
+
+2.16 When the setup dialog opens without startup command-line arguments, it shall pre-select the last used source type and pre-fill the form from that source type's most recent setup entry when one exists.
+
+2.17 The setup dialog shall provide a recent-settings selector filtered to the currently selected source type, and selecting an entry shall apply that entry's saved values to the form.
+
+2.18 The application shall update recent setup history after a valid initial setup starts streaming and after a valid runtime Add Source configuration is accepted.
+
+2.19 When startup command-line arguments are provided but setup is still required, the setup dialog shall ignore recent setup history and use only command-line-provided values, built-in defaults, and validation errors.
+
+2.20 Missing, invalid, or unreadable recent setup history shall not prevent the setup dialog from opening.
 
 ## 3. Main Window
 

@@ -29,9 +29,13 @@ public partial class App : Application
             else
             {
                 desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                desktop.Startup += (_, _) =>
+                desktop.Startup += async (_, _) =>
                 {
-                    var setup = new SetupWindow();
+                    var recentSetupService = new RecentSetupService();
+                    var setupViewModel = cli.HadAnyArgs
+                        ? new SetupWindowViewModel(cli.Config, RecentSetupHistory.Empty)
+                        : new SetupWindowViewModel(null, await recentSetupService.LoadAsync());
+                    var setup = new SetupWindow(setupViewModel, recentSetupService);
                     if (!string.IsNullOrWhiteSpace(cli.Error) && setup.DataContext is SetupWindowViewModel vm)
                     {
                         vm.ErrorMessage = cli.Error;
