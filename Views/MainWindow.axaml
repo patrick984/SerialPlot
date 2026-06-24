@@ -3,6 +3,7 @@
         xmlns:vm="using:SerialPlot.ViewModels"
         xmlns:views="using:SerialPlot.Views"
         xmlns:sp="using:ScottPlot.Avalonia"
+        xmlns:primitives="using:Avalonia.Controls.Primitives"
         x:Class="SerialPlot.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
@@ -23,6 +24,39 @@
     <Style Selector="TextBlock.section">
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Margin" Value="0,10,0,4"/>
+    </Style>
+    <Style Selector="primitives|ToggleButton.axis-toggle">
+      <Setter Property="Width" Value="16"/>
+      <Setter Property="Height" Value="16"/>
+      <Setter Property="MinWidth" Value="16"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="#8A8A8A"/>
+      <Setter Property="BorderThickness" Value="1.4"/>
+      <Setter Property="CornerRadius" Value="3"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}">
+            <Path Data="M3,8 L6.2,11.2 L13,4"
+                  Stroke="{TemplateBinding Foreground}"
+                  StrokeThickness="2"
+                  StrokeLineCap="Round"
+                  StrokeJoin="Round"
+                  IsVisible="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}"/>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="primitives|ToggleButton.axis-toggle:checked">
+      <Setter Property="Background" Value="{Binding Tag, RelativeSource={RelativeSource Self}}"/>
+      <Setter Property="BorderBrush" Value="{Binding Tag, RelativeSource={RelativeSource Self}}"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="primitives|ToggleButton.axis-toggle:disabled">
+      <Setter Property="Opacity" Value="0.45"/>
     </Style>
   </Window.Styles>
 
@@ -131,23 +165,18 @@
                       </MultiBinding>
                     </TextBlock.Foreground>
                   </TextBlock>
-                  <CheckBox Grid.Column="2"
-                            IsChecked="{Binding IsSelectedLeft}"
-                            IsEnabled="{Binding CanBeY}"
-                            VerticalAlignment="Center">
-                    <CheckBox.BorderBrush>
+                  <primitives:ToggleButton Grid.Column="2"
+                                            Classes="axis-toggle"
+                                            IsChecked="{Binding IsSelectedLeft}"
+                                            IsEnabled="{Binding CanBeY}"
+                                            VerticalAlignment="Center">
+                    <primitives:ToggleButton.Tag>
                       <MultiBinding Converter="{StaticResource CheckedTraceBrushConverter}">
                         <Binding Path="IsSelectedLeft"/>
                         <Binding Path="LeftTraceBrush"/>
                       </MultiBinding>
-                    </CheckBox.BorderBrush>
-                    <CheckBox.Foreground>
-                      <MultiBinding Converter="{StaticResource CheckedTraceBrushConverter}">
-                        <Binding Path="IsSelectedLeft"/>
-                        <Binding Path="LeftTraceBrush"/>
-                      </MultiBinding>
-                    </CheckBox.Foreground>
-                  </CheckBox>
+                    </primitives:ToggleButton.Tag>
+                  </primitives:ToggleButton>
                   <TextBlock Grid.Column="3" Text="R" VerticalAlignment="Center">
                     <TextBlock.Foreground>
                       <MultiBinding Converter="{StaticResource CheckedTraceBrushConverter}">
@@ -156,23 +185,18 @@
                       </MultiBinding>
                     </TextBlock.Foreground>
                   </TextBlock>
-                  <CheckBox Grid.Column="4"
-                            IsChecked="{Binding IsSelectedRight}"
-                            IsEnabled="{Binding CanBeY}"
-                            VerticalAlignment="Center">
-                    <CheckBox.BorderBrush>
+                  <primitives:ToggleButton Grid.Column="4"
+                                            Classes="axis-toggle"
+                                            IsChecked="{Binding IsSelectedRight}"
+                                            IsEnabled="{Binding CanBeY}"
+                                            VerticalAlignment="Center">
+                    <primitives:ToggleButton.Tag>
                       <MultiBinding Converter="{StaticResource CheckedTraceBrushConverter}">
                         <Binding Path="IsSelectedRight"/>
                         <Binding Path="RightTraceBrush"/>
                       </MultiBinding>
-                    </CheckBox.BorderBrush>
-                    <CheckBox.Foreground>
-                      <MultiBinding Converter="{StaticResource CheckedTraceBrushConverter}">
-                        <Binding Path="IsSelectedRight"/>
-                        <Binding Path="RightTraceBrush"/>
-                      </MultiBinding>
-                    </CheckBox.Foreground>
-                  </CheckBox>
+                    </primitives:ToggleButton.Tag>
+                  </primitives:ToggleButton>
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
