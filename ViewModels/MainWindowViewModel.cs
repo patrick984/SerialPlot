@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Diagnostics;
@@ -28,6 +29,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     private readonly Stopwatch _plotUpdateClock = Stopwatch.StartNew();
     private readonly UserPreferencesService _preferencesService;
     private readonly Dictionary<InputSourceViewModel, long> _dirtySourceVersions = [];
+    private readonly Dictionary<InputSourceViewModel, SourceSubscriptions> _sourceSubscriptions = [];
     private Task? _preferencesLoadTask;
     private bool _loadingPreferences;
     private bool _updatingSelectedSource;
@@ -358,6 +360,12 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     private void RaisePlotDataChanged(SourceDataChangedEventArgs sourceArgs)
     {
+        if (!Sources.Contains(sourceArgs.Source))
+        {
+            _dirtySourceVersions.Remove(sourceArgs.Source);
+            return;
+        }
+
         if (sourceArgs.Kind == PlotDataChangeKind.Append)
         {
             _dirtySourceVersions[sourceArgs.Source] = sourceArgs.BufferVersion;
@@ -442,6 +450,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
         foreach (var source in Sources.ToArray())
         {
+            DetachSource(source);
             await source.DisposeAsync().ConfigureAwait(false);
         }
         _cancellation.Dispose();
@@ -449,8 +458,8 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     public void AddSource(InputSourceViewModel source)
     {
-        source.DataChanged += (_, args) => RaisePlotDataChanged(args);
-        source.PropertyChanged += (_, args) =>
+        EventHandler<SourceDataChangedEventArgs> dataChanged = (_, args) => RaisePlotDataChanged(args);
+        PropertyChangedEventHandler propertyChanged = (_, args) =>
         {
             if (ReferenceEquals(source, SelectedSource) && args.PropertyName == nameof(InputSourceViewModel.SelectedXChannel))
             {
@@ -465,6 +474,9 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                 }
             }
         };
+        source.DataChanged += dataChanged;
+        source.PropertyChanged += propertyChanged;
+        _sourceSubscriptions[source] = new SourceSubscriptions(dataChanged, propertyChanged);
         Sources.Add(source);
         if (_started)
         {
@@ -484,18 +496,35 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
 
     public async Task RemoveSourceAsync(InputSourceViewModel source)
     {
-        if (!Sources.Remove(source))
+        if (!Sources.Contains(source))
         {
             return;
         }
 
-        await source.DisposeAsync().ConfigureAwait(false);
+        var replacement = ReferenceEquals(SelectedSource, source)
+            ? Sources.FirstOrDefault(x => !ReferenceEquals(x, source))
+            : SelectedSource;
+        _dirtySourceVersions.Remove(source);
+        DetachSource(source);
         if (ReferenceEquals(SelectedSource, source))
         {
-            SelectedSource = Sources.FirstOrDefault();
+            SelectedSource = replacement;
         }
 
+        Sources.Remove(source);
+        await source.DisposeAsync().ConfigureAwait(false);
         RaisePlotDataChanged(PlotDataChangeKind.SelectionChanged);
+    }
+
+    private void DetachSource(InputSourceViewModel source)
+    {
+        if (!_sourceSubscriptions.Remove(source, out var subscriptions))
+        {
+            return;
+        }
+
+        source.DataChanged -= subscriptions.DataChanged;
+        source.PropertyChanged -= subscriptions.PropertyChanged;
     }
 
     private string BuildStatus()
@@ -574,3 +603,7 @@ public enum PlotDataChangeKind
     Autoscale,
     Rebuild,
 }
+
+internal sealed record SourceSubscriptions(
+    EventHandler<SourceDataChangedEventArgs> DataChanged,
+    PropertyChangedEventHandler PropertyChanged);

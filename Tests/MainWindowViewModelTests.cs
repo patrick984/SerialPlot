@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using SerialPlot.Models;
 using SerialPlot.Services;
 using SerialPlot.ViewModels;
@@ -85,6 +86,41 @@ public sealed class MainWindowViewModelTests
 
         Assert.Contains(traces, x => ReferenceEquals(x.Source, sourceA) && x.Channel == channelA && x.Side == TraceAxisSide.Left);
         Assert.Contains(traces, x => ReferenceEquals(x.Source, sourceB) && x.Channel == channelB && x.Side == TraceAxisSide.Right);
+    }
+
+    [Fact]
+    public async Task RemoveSelectedSourceSelectsReplacementAndDropsTraces()
+    {
+        var sourceA = new InputSourceViewModel(SourceConfig("a"), new TextReaderLineSource(TextReader.Null));
+        var sourceB = new InputSourceViewModel(SourceConfig("b"), new TextReaderLineSource(TextReader.Null));
+        var vm = CreateViewModel(sourceA, sourceB);
+        var removedChannel = new ChannelViewModel("value", 1) { CanBeY = true, IsSelectedLeft = true };
+        sourceB.Channels.Add(removedChannel);
+
+        await vm.RemoveSourceAsync(sourceB);
+
+        Assert.DoesNotContain(sourceB, vm.Sources);
+        Assert.Same(sourceA, vm.SelectedSource);
+        Assert.Same(sourceA.Channels, vm.Channels);
+        Assert.DoesNotContain(vm.SelectedTraces, x => ReferenceEquals(x.Source, sourceB));
+    }
+
+    [Fact]
+    public async Task LateNotificationsFromRemovedSourceAreIgnored()
+    {
+        var sourceA = new InputSourceViewModel(SourceConfig("a"), new TextReaderLineSource(TextReader.Null));
+        var sourceB = new InputSourceViewModel(SourceConfig("b"), new TextReaderLineSource(TextReader.Null));
+        var vm = CreateViewModel(sourceA, sourceB);
+        var events = new System.Collections.Generic.List<PlotDataChangedEventArgs>();
+        vm.PlotDataChanged += (_, args) => events.Add(args);
+
+        await vm.RemoveSourceAsync(sourceA);
+        events.Clear();
+        Thread.Sleep(40);
+        RaiseSourceAppend(vm, sourceA, 1);
+
+        Assert.Empty(events);
+        Assert.DoesNotContain(sourceA, vm.Sources);
     }
 
     [Fact]

@@ -4,10 +4,10 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 
 ## Validation Summary
 
-- Automated test traceability: PASS. All 80 existing xUnit test methods are mapped to at least one parent requirement in the automated test traceability table. The current suite executes 84 cases because theories expand into multiple cases.
+- Automated test traceability: PASS. All 82 existing xUnit test methods are mapped to at least one parent requirement in the automated test traceability table. The current suite executes 86 cases because theories expand into multiple cases.
 - Requirement test-case coverage: PASS. Every requirement has at least one linked verification case.
 - Automated-only requirement coverage: INCOMPLETE. Several UI, platform, packaging, hardware, and workflow requirements are covered by manual or inspection test cases because no direct automated test exists yet.
-- Execution status: `dotnet test Tests/SerialPlot.Tests.csproj --no-restore` passed with 84 total cases, 0 failures, and 0 skipped.
+- Execution status: `dotnet test Tests/SerialPlot.Tests.csproj --no-restore` passed with 86 total cases, 0 failures, and 0 skipped.
 
 ## Verification Methods
 
@@ -63,7 +63,7 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | 3.8 | AUT `MainWindowViewModelTests.SelectedTracesIncludeSourceIdentity`, AUT `ChannelViewModelTests.TraceBrushesCanBeAssignedAndClearedPerAxis`, MAN-CHANNEL-001 |
 | 3.9 | MAN-MAIN-UI-001, MAN-MULTISOURCE-001 |
 | 3.10 | AUT `MainWindowViewModelTests.XAutoscaleModeOptionsExposeFriendlyLabels`, AUT `MainWindowViewModelTests.SelectingXAutoscaleModeOptionUpdatesMode`, AUT `MainWindowViewModelTests.SettingXAutoscaleModeUpdatesSelectedOption`, MAN-PLOT-001 |
-| 3.11 | AUT `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection`, MAN-MULTISOURCE-001 |
+| 3.11 | AUT `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection`, AUT `MainWindowViewModelTests.RemoveSelectedSourceSelectsReplacementAndDropsTraces`, AUT `MainWindowViewModelTests.LateNotificationsFromRemovedSourceAreIgnored`, MAN-MULTISOURCE-001 |
 | 3.12 | AUT `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection`, MAN-MAIN-UI-001 |
 | 3.13 | MAN-MAIN-UI-001, MAN-MULTISOURCE-001 |
 | 4.1 | MAN-CHANNEL-001 |
@@ -114,7 +114,7 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | 5.13 | AUT `CliConfigParserTests.RepeatSourceSpecsCreateIndependentSources`, AUT `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection`, MAN-MULTISOURCE-001 |
 | 5.14 | AUT `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection`, AUT `MainWindowViewModelTests.SelectedTracesIncludeSourceIdentity`, MAN-MULTISOURCE-001 |
 | 5.15 | MAN-MULTISOURCE-001 |
-| 5.16 | MAN-MULTISOURCE-001 |
+| 5.16 | AUT `MainWindowViewModelTests.RemoveSelectedSourceSelectsReplacementAndDropsTraces`, AUT `MainWindowViewModelTests.LateNotificationsFromRemovedSourceAreIgnored`, MAN-MULTISOURCE-001 |
 | 5.17 | AUT `CliConfigParserTests.TestSourceRequiresNoConnectionSettings`, AUT `TestCsvLineSourceTests.IndependentSourcesProduceDifferentRandomWalks` |
 | 5.18 | MAN-MAIN-UI-001 |
 | 6.1 | AUT `CsvGen.CsvGeneratorTests.WritesHeaderAndFixedSampleRowsAcceptedBySerialPlotParser`, AUT `CsvStreamParserTests.HeaderRejectsBlankAndDuplicateNames` |
@@ -176,6 +176,8 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | `MainWindowViewModelTests.FutureSpaceControlIsEnabledOnlyForSteppedExpansion` | 2.10 |
 | `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection` | 3.11, 3.12, 4.25, 5.13, 5.14 |
 | `MainWindowViewModelTests.SelectedTracesIncludeSourceIdentity` | 3.8, 4.23, 4.24, 5.14 |
+| `MainWindowViewModelTests.RemoveSelectedSourceSelectsReplacementAndDropsTraces` | 3.11, 5.16 |
+| `MainWindowViewModelTests.LateNotificationsFromRemovedSourceAreIgnored` | 3.11, 5.16 |
 | `MainWindowViewModelTests.AppendThrottlingPreservesDirtySources` | 4.3, 5.13 |
 | `MainWindowViewModelTests.PausedAppendIsRetainedUntilResume` | 4.12, 4.13 |
 | `PlotBufferTests.CircularBufferCapsRowsAndPreservesOrder` | 4.4 |
