@@ -77,7 +77,17 @@ public partial class MainWindow : Window
         }
 
         _attachedViewModel = vm;
-        _plotDataChangedHandler = (_, args) => RefreshPlot(args);
+        _plotDataChangedHandler = (_, args) =>
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                RefreshPlot(args);
+            }
+            else
+            {
+                Dispatcher.UIThread.Post(() => RefreshPlot(args));
+            }
+        };
         vm.PlotDataChanged += _plotDataChangedHandler;
         ConfigurePlot();
         vm.Start();

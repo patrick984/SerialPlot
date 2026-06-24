@@ -512,7 +512,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         }
 
         Sources.Remove(source);
-        await source.DisposeAsync().ConfigureAwait(false);
+        await source.DisposeAsync();
         RaisePlotDataChanged(PlotDataChangeKind.SelectionChanged);
     }
 
