@@ -77,6 +77,9 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty]
     private int _steppedFutureSpaceSeconds = UserPreferences.DefaultSteppedFutureSpaceSeconds;
 
+    [ObservableProperty]
+    private double _plotLineWidth = UserPreferences.DefaultPlotLineWidth;
+
     public ObservableCollection<ChannelViewModel> Channels => SelectedSource?.Channels ?? [];
     public int BufferCapacity => Sources.Count == 0 ? _config.BufferSize : Sources.Max(x => x.BufferCapacity);
     public IReadOnlyList<XAutoscaleModeOption> XAutoscaleModeOptions { get; } = XAutoscaleModeOptionValues;
@@ -305,6 +308,22 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
         }
     }
 
+    partial void OnPlotLineWidthChanged(double value)
+    {
+        var clamped = UserPreferences.ClampPlotLineWidth(value);
+        if (Math.Abs(clamped - value) > double.Epsilon)
+        {
+            PlotLineWidth = clamped;
+            return;
+        }
+
+        RaisePlotDataChanged(PlotDataChangeKind.Rebuild);
+        if (!_loadingPreferences)
+        {
+            _ = SavePreferencesAsync();
+        }
+    }
+
     private async Task LoadPreferencesAsync()
     {
         var preferences = await _preferencesService.LoadAsync().ConfigureAwait(false);
@@ -315,6 +334,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
                 _loadingPreferences = true;
                 XAutoscaleMode = preferences.XAutoscaleMode;
                 SteppedFutureSpaceSeconds = preferences.SteppedFutureSpaceSeconds;
+                PlotLineWidth = preferences.PlotLineWidth;
             }
             finally
             {
@@ -327,7 +347,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     {
         try
         {
-            await _preferencesService.SaveAsync(new UserPreferences(XAutoscaleMode, SteppedFutureSpaceSeconds)).ConfigureAwait(false);
+            await _preferencesService.SaveAsync(new UserPreferences(XAutoscaleMode, SteppedFutureSpaceSeconds, PlotLineWidth)).ConfigureAwait(false);
         }
         catch
         {

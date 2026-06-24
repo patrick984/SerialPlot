@@ -1,0 +1,38 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SerialPlot.ViewModels"
+        x:Class="SerialPlot.Views.SettingsWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="360"
+        MinWidth="360"
+        MinHeight="220"
+        CanResize="False"
+        Title="SerialPlot Settings">
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Margin" Value="0,8,0,4"/>
+    </Style>
+  </Window.Styles>
+
+  <StackPanel Margin="20" Spacing="4">
+    <TextBlock Text="Future space (seconds)" Classes="label"/>
+    <NumericUpDown Value="{Binding SteppedFutureSpaceSeconds}"
+                   IsEnabled="{Binding IsSteppedExpansionSelected}"
+                   Minimum="1"
+                   Maximum="300"
+                   Increment="1"/>
+
+    <TextBlock Text="Plot line width" Classes="label"/>
+    <NumericUpDown Value="{Binding PlotLineWidth}"
+                   Minimum="1"
+                   Maximum="10"
+                   Increment="0.5"
+                   FormatString="0.0"/>
+
+    <Button Content="Close"
+            HorizontalAlignment="Right"
+            Margin="0,16,0,0"
+            Click="CloseClicked"/>
+  </StackPanel>
+</Window>

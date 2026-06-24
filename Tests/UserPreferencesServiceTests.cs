@@ -19,6 +19,7 @@ public sealed class UserPreferencesServiceTests
 
         Assert.Equal(XAutoscaleMode.ContinuousFollowNewest, preferences.XAutoscaleMode);
         Assert.Equal(UserPreferences.DefaultSteppedFutureSpaceSeconds, preferences.SteppedFutureSpaceSeconds);
+        Assert.Equal(UserPreferences.DefaultPlotLineWidth, preferences.PlotLineWidth);
     }
 
     [Fact]
@@ -33,6 +34,7 @@ public sealed class UserPreferencesServiceTests
 
         Assert.Equal(XAutoscaleMode.SteppedExpansion, preferences.XAutoscaleMode);
         Assert.Equal(UserPreferences.DefaultSteppedFutureSpaceSeconds, preferences.SteppedFutureSpaceSeconds);
+        Assert.Equal(UserPreferences.DefaultPlotLineWidth, preferences.PlotLineWidth);
     }
 
     [Fact]
@@ -76,16 +78,30 @@ public sealed class UserPreferencesServiceTests
     }
 
     [Fact]
+    public async Task PlotLineWidthClampsOutOfRangeValues()
+    {
+        var path = CreateTempPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllTextAsync(path, """{"XAutoscaleMode":"SteppedExpansion","SteppedFutureSpaceSeconds":30,"PlotLineWidth":999}""");
+        var service = new UserPreferencesService(path);
+
+        var preferences = await service.LoadAsync();
+
+        Assert.Equal(UserPreferences.MaximumPlotLineWidth, preferences.PlotLineWidth);
+    }
+
+    [Fact]
     public async Task SteppedPanModeLoadsAndSaves()
     {
         var path = CreateTempPath();
         var service = new UserPreferencesService(path);
 
-        await service.SaveAsync(new UserPreferences(XAutoscaleMode.SteppedPan, 60));
+        await service.SaveAsync(new UserPreferences(XAutoscaleMode.SteppedPan, 60, 2.5));
         var preferences = await service.LoadAsync();
 
         Assert.Equal(XAutoscaleMode.SteppedPan, preferences.XAutoscaleMode);
         Assert.Equal(60, preferences.SteppedFutureSpaceSeconds);
+        Assert.Equal(2.5, preferences.PlotLineWidth);
     }
 
     [Fact]
@@ -94,11 +110,12 @@ public sealed class UserPreferencesServiceTests
         var path = CreateTempPath();
         var service = new UserPreferencesService(path);
 
-        await service.SaveAsync(new UserPreferences(XAutoscaleMode.SteppedExpansion, 45));
+        await service.SaveAsync(new UserPreferences(XAutoscaleMode.SteppedExpansion, 45, 3));
         var preferences = await service.LoadAsync();
 
         Assert.Equal(XAutoscaleMode.SteppedExpansion, preferences.XAutoscaleMode);
         Assert.Equal(45, preferences.SteppedFutureSpaceSeconds);
+        Assert.Equal(3, preferences.PlotLineWidth);
     }
 
     private static string CreateTempPath()

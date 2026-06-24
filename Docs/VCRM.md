@@ -4,10 +4,10 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 
 ## Validation Summary
 
-- Automated test traceability: PASS. All 91 existing xUnit test methods are mapped to at least one parent requirement in the automated test traceability table. The current suite executes 95 cases because theories expand into multiple cases.
+- Automated test traceability: PASS. All 94 existing xUnit test methods are mapped to at least one parent requirement in the automated test traceability table. The current suite executes 98 cases because theories expand into multiple cases.
 - Requirement test-case coverage: PASS. Every requirement has at least one linked verification case.
 - Automated-only requirement coverage: INCOMPLETE. Several UI, platform, packaging, hardware, and workflow requirements are covered by manual or inspection test cases because no direct automated test exists yet.
-- Execution status: `dotnet test Tests/SerialPlot.Tests.csproj --no-restore` passed with 95 total cases, 0 failures, and 0 skipped.
+- Execution status: `dotnet test Tests/SerialPlot.Tests.csproj --no-restore` passed with 98 total cases, 0 failures, and 0 skipped.
 
 ## Verification Methods
 
@@ -25,7 +25,9 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | MAN-RECENT-SETUP-001 | Manual | Create recent setup entries for multiple source types; verify no-arg setup pre-fills the last used source, the recent-settings selector is filtered by source type, selecting an entry applies all fields, runtime Add Source updates history, and incomplete CLI startup ignores history. |
 | MAN-SETUP-SIZE-001 | Manual | Launch setup with source types and recent/error states that change visible content; verify the window auto-fits vertically up to 80% of the screen working area, remains vertically resizable, and scrolls when content exceeds the cap. |
 | MAN-MAIN-UI-001 | Manual | Launch a test source and verify the main window contains the plot, right channel panel, channel list, source selector, axis selectors, status, error band, and toolbar controls. |
+| MAN-TOOLBAR-SETTINGS-001 | Manual | Verify the toolbar has an Export menu with Save CSV and Export PNG, a Settings button, no future-space control, and no status text; verify Settings live-applies future-space and plot line-width changes. |
 | MAN-CHANNEL-001 | Manual | Stream data, change X and Y selections while running, assign traces to left/right axes, and confirm missing initial selections are ignored. |
+| MAN-CHANNEL-SELECTOR-001 | Manual | Verify channel rows place L/R labels left of their checkboxes; selected axis checkbox and label colors match the plot trace, while unselected controls remain neutral. |
 | MAN-PLOT-001 | Manual | Verify scrolling, manual pan/zoom, autoscale toggles, axis-specific autoscale disablement, hover overlay text, PNG export, and single-source CSV save. |
 | MAN-SOURCE-001 | Manual | Verify stdin, serial, TCP, UDP, and test sources with representative live streams. |
 | MAN-UDP-RESEND-001 | Manual | Configure a UDP source with a resend interval and confirm the request message is resent every configured N seconds while active; confirm disabled or unset interval sends only once at startup. |
@@ -76,6 +78,13 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | 3.11 | AUT `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection`, AUT `MainWindowViewModelTests.RemoveSelectedSourceSelectsReplacementAndDropsTraces`, AUT `MainWindowViewModelTests.LateNotificationsFromRemovedSourceAreIgnored`, MAN-MULTISOURCE-001 |
 | 3.12 | AUT `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection`, MAN-MAIN-UI-001 |
 | 3.13 | MAN-MAIN-UI-001, MAN-MULTISOURCE-001 |
+| 3.14 | MAN-TOOLBAR-SETTINGS-001 |
+| 3.15 | MAN-TOOLBAR-SETTINGS-001 |
+| 3.16 | AUT `MainWindowViewModelTests.PlotLineWidthChangeRaisesRebuild`, MAN-TOOLBAR-SETTINGS-001 |
+| 3.17 | AUT `MainWindowViewModelTests.PlotLineWidthClampsToPreferenceRange`, MAN-TOOLBAR-SETTINGS-001 |
+| 3.18 | MAN-TOOLBAR-SETTINGS-001 |
+| 3.19 | MAN-CHANNEL-SELECTOR-001 |
+| 3.20 | MAN-CHANNEL-SELECTOR-001 |
 | 4.1 | MAN-CHANNEL-001 |
 | 4.2 | AUT `CsvStreamParserTests.HeaderRejectsBlankAndDuplicateNames`, MAN-CHANNEL-001 |
 | 4.3 | AUT `MainWindowViewModelTests.AppendThrottlingPreservesDirtySources`, MAN-PLOT-001 |
@@ -109,6 +118,7 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | 4.26 | MAN-MULTISOURCE-001 |
 | 4.27 | MAN-STACKED-PANELS-001 |
 | 4.28 | MAN-STACKED-PANELS-001 |
+| 4.29 | AUT `UserPreferencesServiceTests.PlotLineWidthClampsOutOfRangeValues`, AUT `UserPreferencesServiceTests.SaveWritesSelectedModeAndFutureSpace`, AUT `MainWindowViewModelTests.PlotLineWidthClampsToPreferenceRange`, AUT `MainWindowViewModelTests.PlotLineWidthChangeRaisesRebuild`, MAN-TOOLBAR-SETTINGS-001 |
 | 5.1 | AUT `CsvStreamParserTests.ParsesNumbersDatesUnixAndGaps`, MAN-SOURCE-001 |
 | 5.2 | AUT `SetupWindowViewModelTests.VisibilityFlagsFollowSelectedSource`, AUT `CliConfigParserTests.StdinArgsAreComplete`, AUT `CliConfigParserTests.SerialRequiresPortAndBaud`, AUT `CliConfigParserTests.TcpRequiresHostAndPort`, MAN-SOURCE-001 |
 | 5.3 | AUT `CliConfigParserTests.StdinArgsAreComplete`, AUT `CliConfigParserTests.NoArgsWithRedirectedStdinStartsStdinSource` |
@@ -188,6 +198,8 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | `MainWindowViewModelTests.SelectingXAutoscaleModeOptionUpdatesMode` | 3.10, 4.5 |
 | `MainWindowViewModelTests.SettingXAutoscaleModeUpdatesSelectedOption` | 3.10, 4.5 |
 | `MainWindowViewModelTests.FutureSpaceControlIsEnabledOnlyForSteppedExpansion` | 2.10 |
+| `MainWindowViewModelTests.PlotLineWidthClampsToPreferenceRange` | 3.17, 4.29 |
+| `MainWindowViewModelTests.PlotLineWidthChangeRaisesRebuild` | 3.16, 4.29 |
 | `MainWindowViewModelTests.AddSourceSelectsAndExposesIndependentChannelCollection` | 3.11, 3.12, 4.25, 5.13, 5.14 |
 | `MainWindowViewModelTests.SelectedTracesIncludeSourceIdentity` | 3.8, 4.23, 4.24, 5.14 |
 | `MainWindowViewModelTests.RemoveSelectedSourceSelectsReplacementAndDropsTraces` | 3.11, 5.16 |
@@ -219,8 +231,9 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 | `UserPreferencesServiceTests.InvalidJsonReturnsDefaults` | 2.9 |
 | `UserPreferencesServiceTests.UnknownModeReturnsDefaults` | 2.9 |
 | `UserPreferencesServiceTests.FutureSpaceSecondsClampsOutOfRangeValues` | 2.10 |
+| `UserPreferencesServiceTests.PlotLineWidthClampsOutOfRangeValues` | 4.29 |
 | `UserPreferencesServiceTests.SteppedPanModeLoadsAndSaves` | 2.9 |
-| `UserPreferencesServiceTests.SaveWritesSelectedModeAndFutureSpace` | 2.9 |
+| `UserPreferencesServiceTests.SaveWritesSelectedModeAndFutureSpace` | 2.9, 4.29 |
 | `RecentSetupServiceTests.MissingFileReturnsEmptyHistory` | 2.20 |
 | `RecentSetupServiceTests.InvalidJsonReturnsEmptyHistory` | 2.20 |
 | `RecentSetupServiceTests.SaveAndLoadRestoresLastSourceAndEntries` | 2.15 |
@@ -256,6 +269,6 @@ This VCRM links the requirements in `Docs/Requirements.md` to verification test 
 
 The following requirements are covered only by manual or inspection cases in this VCRM and do not currently have direct automated test coverage:
 
-1.1, 1.2, 1.3, 1.4, 2.4, 2.8, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.9, 3.13, 4.1, 4.6, 4.10, 4.11, 4.15, 4.16, 4.18, 4.19, 4.20, 4.22, 4.26, 4.27, 4.28, 5.5, 5.6, 5.10, 5.11, 5.15, 5.16, 5.18, 6.4, 6.5, 6.6, 6.9, 7.5, 7.7, 8.1, 8.2, 9.2.
+1.1, 1.2, 1.3, 1.4, 2.4, 2.8, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.9, 3.13, 3.14, 3.15, 3.18, 3.19, 3.20, 4.1, 4.6, 4.10, 4.11, 4.15, 4.16, 4.18, 4.19, 4.20, 4.22, 4.26, 4.27, 4.28, 5.5, 5.6, 5.10, 5.11, 5.15, 5.16, 5.18, 6.4, 6.5, 6.6, 6.9, 7.5, 7.7, 8.1, 8.2, 9.2.
 
 Requirements 4.27 and 4.28 are especially important to review because the current design document describes a single ScottPlot plot area, while these requirements call for stacked plot panels and per-trace placement.

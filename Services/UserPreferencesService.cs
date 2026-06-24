@@ -7,23 +7,32 @@ using SerialPlot.Models;
 
 namespace SerialPlot.Services;
 
-public sealed record UserPreferences(XAutoscaleMode XAutoscaleMode, int SteppedFutureSpaceSeconds)
+public sealed record UserPreferences(XAutoscaleMode XAutoscaleMode, int SteppedFutureSpaceSeconds, double PlotLineWidth)
 {
     public const int DefaultSteppedFutureSpaceSeconds = 30;
     public const int MinimumSteppedFutureSpaceSeconds = 1;
     public const int MaximumSteppedFutureSpaceSeconds = 300;
+    public const double DefaultPlotLineWidth = 1;
+    public const double MinimumPlotLineWidth = 1;
+    public const double MaximumPlotLineWidth = 10;
 
     public static UserPreferences Defaults { get; } = new(
         XAutoscaleMode.ContinuousFollowNewest,
-        DefaultSteppedFutureSpaceSeconds);
+        DefaultSteppedFutureSpaceSeconds,
+        DefaultPlotLineWidth);
 
     public static int ClampSteppedFutureSpaceSeconds(int value)
         => Math.Clamp(value, MinimumSteppedFutureSpaceSeconds, MaximumSteppedFutureSpaceSeconds);
 
+    public static double ClampPlotLineWidth(double value)
+        => double.IsFinite(value)
+            ? Math.Clamp(value, MinimumPlotLineWidth, MaximumPlotLineWidth)
+            : DefaultPlotLineWidth;
+
     public UserPreferences Normalize()
     {
         var mode = Enum.IsDefined(XAutoscaleMode) ? XAutoscaleMode : Defaults.XAutoscaleMode;
-        return new UserPreferences(mode, ClampSteppedFutureSpaceSeconds(SteppedFutureSpaceSeconds));
+        return new UserPreferences(mode, ClampSteppedFutureSpaceSeconds(SteppedFutureSpaceSeconds), ClampPlotLineWidth(PlotLineWidth));
     }
 }
 
@@ -69,9 +78,13 @@ public sealed class UserPreferencesService
             stream.Position = 0;
             using var document = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
             var hasFutureSpace = document.RootElement.TryGetProperty(nameof(UserPreferences.SteppedFutureSpaceSeconds), out _);
+            var hasPlotLineWidth = document.RootElement.TryGetProperty(nameof(UserPreferences.PlotLineWidth), out _);
             preferences = hasFutureSpace
                 ? preferences
                 : preferences with { SteppedFutureSpaceSeconds = UserPreferences.DefaultSteppedFutureSpaceSeconds };
+            preferences = hasPlotLineWidth
+                ? preferences
+                : preferences with { PlotLineWidth = UserPreferences.DefaultPlotLineWidth };
             return preferences.Normalize();
         }
         catch

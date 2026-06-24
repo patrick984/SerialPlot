@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _xRangeAnimationTimer;
     private MainWindowViewModel? _attachedViewModel;
     private EventHandler<PlotDataChangedEventArgs>? _plotDataChangedHandler;
+    private SettingsWindow? _settingsWindow;
     private long _sampleRateVersion;
     private DateTime _sampleRateTime = DateTime.UtcNow;
     private double _sampleRatePerSecond;
@@ -123,6 +124,7 @@ public partial class MainWindow : Window
         SynchronizeSeries(vm);
         foreach (var series in _series.Values)
         {
+            series.ApplyLineWidth(vm.PlotLineWidth);
             UpdateSeriesData(vm, series, args);
         }
 
@@ -172,6 +174,8 @@ public partial class MainWindow : Window
         newer.LegendText = string.Empty;
         ConfigureSignalMarkers(older, color);
         ConfigureSignalMarkers(newer, color);
+        ConfigureSignalLine(older, vm.PlotLineWidth);
+        ConfigureSignalLine(newer, vm.PlotLineWidth);
 
         var yAxis = selection.Side == TraceAxisSide.Left ? Plot.Plot.Axes.Left : Plot.Plot.Axes.Right;
         older.Axes.YAxis = yAxis;
@@ -259,6 +263,11 @@ public partial class MainWindow : Window
         signal.MarkerLineColor = color;
         signal.MarkerLineWidth = 1;
         signal.MarkerSize = 0;
+    }
+
+    private static void ConfigureSignalLine(SignalXY signal, double lineWidth)
+    {
+        signal.LineWidth = (float)lineWidth;
     }
 
     private static void SetTraceBrush(ChannelViewModel channel, TraceAxisSide side, IBrush? brush)
@@ -562,6 +571,27 @@ public partial class MainWindow : Window
         window.Show(this);
     }
 
+    private void SettingsClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
+        _settingsWindow = new SettingsWindow
+        {
+            DataContext = vm,
+        };
+        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Show(this);
+    }
+
     private void PlotPointerInput(object? sender, PointerEventArgs e)
     {
         if (DataContext is MainWindowViewModel vm)
@@ -757,6 +787,12 @@ public partial class MainWindow : Window
         {
             HoverCacheBufferVersion = -1;
             HoverCacheVisibleXRange = null;
+        }
+
+        public void ApplyLineWidth(double lineWidth)
+        {
+            older.LineWidth = (float)lineWidth;
+            newer.LineWidth = (float)lineWidth;
         }
 
         public void EnsureHoverCache(XRange visibleXRange)

@@ -56,6 +56,29 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public void PlotLineWidthClampsToPreferenceRange()
+    {
+        var vm = CreateViewModel();
+
+        vm.PlotLineWidth = 999;
+
+        Assert.Equal(UserPreferences.MaximumPlotLineWidth, vm.PlotLineWidth);
+    }
+
+    [Fact]
+    public void PlotLineWidthChangeRaisesRebuild()
+    {
+        var vm = CreateViewModel();
+        PlotDataChangedEventArgs? received = null;
+        vm.PlotDataChanged += (_, args) => received = args;
+
+        vm.PlotLineWidth = 2.5;
+
+        Assert.NotNull(received);
+        Assert.Equal(PlotDataChangeKind.Rebuild, received.Kind);
+    }
+
+    [Fact]
     public void AddSourceSelectsAndExposesIndependentChannelCollection()
     {
         var vm = CreateViewModel();

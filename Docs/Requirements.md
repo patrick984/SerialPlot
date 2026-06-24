@@ -95,6 +95,20 @@
 
 3.13 The application shall show source-specific status and error information.
 
+3.14 The main toolbar shall consolidate export actions under a single Export menu containing Save CSV and Export PNG commands.
+
+3.15 The main toolbar shall provide a Settings button that opens a dedicated settings dialog.
+
+3.16 The settings dialog shall live-apply user changes without requiring OK or Apply confirmation.
+
+3.17 The settings dialog shall include controls for stepped future-space duration and global plot line width.
+
+3.18 Normal aggregate status text shall be shown at the bottom right below the channel list, while runtime errors shall continue to use the error display.
+
+3.19 Channel axis selectors shall place the L and R axis labels to the left of their corresponding checkboxes.
+
+3.20 When a channel is selected for an axis, that axis checkbox and adjacent L or R label shall use the corresponding plot trace color; unselected axis checkboxes shall use the neutral theme color.
+
 ## 4. Plot Behavior
 
 4.1 Plotting shall start only after the user selects channels or valid initial channel selections are applied from command-line options.
@@ -162,6 +176,8 @@
 4.27 The application shall support stacked plot panels with shared X controls and per-panel Y axes.
 
 4.28 Trace placement shall be assignable per trace so traces from the same source may be overlaid or separated.
+
+4.29 Global plot line width shall be user-configurable, persisted across launches, bounded from 1.0 to 10.0, default to 1.0, and apply to all current and future plot traces.
 
 ## 5. Data Sources
 

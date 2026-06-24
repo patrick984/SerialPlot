@@ -65,11 +65,13 @@ The form conditionally shows serial, network, and UDP request fields based on `S
 
 `MainWindow.axaml` is split into three main areas:
 
-- top toolbar for pause, clear, autoscale controls, export, source management, and status
+- top toolbar for pause, clear, autoscale controls, export menu, source management, and settings
 - central ScottPlot `AvaPlot` with a canvas overlay for hover marker and label
-- right channel panel for selecting the active source, X channel, and left/right Y traces
+- right channel panel for selecting the active source, X channel, left/right Y traces, and aggregate status
 
-The right panel binds to `MainWindowViewModel.SelectedSource` and exposes that source's `Channels`. Each `ChannelViewModel` tracks whether the channel can be used for X or Y, whether it is selected on left or right axis, and the brush assigned by the plot.
+The right panel binds to `MainWindowViewModel.SelectedSource` and exposes that source's `Channels`. Each `ChannelViewModel` tracks whether the channel can be used for X or Y, whether it is selected on left or right axis, and the brush assigned by the plot. Axis selectors place L/R labels before their checkboxes and use the trace brush for selected axis controls.
+
+`SettingsWindow` binds directly to `MainWindowViewModel` and live-applies stepped future-space and plot line-width changes. The Export toolbar button opens a menu containing Save CSV and Export PNG commands.
 
 The main UI intentionally keeps plotting imperative in `MainWindow.axaml.cs`. ScottPlot plottables, axis objects, marker state, PNG export, pointer gestures, and hover overlays are view concerns and do not live in the view model.
 
@@ -207,7 +209,7 @@ Source reading runs on background tasks. Mutable buffer state is protected by `_
 
 ## Persistence
 
-`UserPreferencesService` stores UI preferences for X autoscale mode and stepped future space. Preferences are loaded before sources start so initial plot behavior reflects saved settings. Preference save failures are intentionally ignored, keeping plotting functional when settings cannot be written.
+`UserPreferencesService` stores UI preferences for X autoscale mode, stepped future space, and global plot line width. Preferences are loaded before sources start so initial plot behavior reflects saved settings. Preference save failures are intentionally ignored, keeping plotting functional when settings cannot be written.
 
 `RecentSetupService` stores recent setup entries in `recent-setups.json` under the SerialPlot application data directory. This history is used only to pre-fill setup forms and is not a saved project format. Missing, corrupt, or unwritable history does not block setup or plotting.
 

@@ -13,6 +13,7 @@
         Title="SerialPlot">
   <Window.Resources>
     <views:TraceBrushBindingConverter x:Key="TraceBrushBindingConverter"/>
+    <views:CheckedTraceBrushConverter x:Key="CheckedTraceBrushConverter"/>
   </Window.Resources>
 
   <Window.Styles>
@@ -40,19 +41,18 @@
             </DataTemplate>
           </ComboBox.ItemTemplate>
         </ComboBox>
-        <TextBlock Text="Future" VerticalAlignment="Center" IsEnabled="{Binding IsSteppedExpansionSelected}"/>
-        <NumericUpDown Value="{Binding SteppedFutureSpaceSeconds}"
-                       IsEnabled="{Binding IsSteppedExpansionSelected}"
-                       Minimum="1"
-                       Maximum="300"
-                       Increment="1"
-                       Width="72"/>
         <CheckBox Content="Y Left Auto" IsChecked="{Binding AutoScaleLeftY}" VerticalAlignment="Center"/>
         <CheckBox Content="Y Right Auto" IsChecked="{Binding AutoScaleRightY}" VerticalAlignment="Center"/>
-        <Button Content="Export PNG" Click="ExportPngClicked"/>
-        <Button Content="Save CSV" Click="SaveCsvClicked"/>
+        <Button Content="Export">
+          <Button.Flyout>
+            <MenuFlyout>
+              <MenuItem Header="Save CSV" Click="SaveCsvClicked"/>
+              <MenuItem Header="Export PNG" Click="ExportPngClicked"/>
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
         <Button Content="Sources" Click="ManageSourcesClicked"/>
-        <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+        <Button Content="Settings" Click="SettingsClicked"/>
       </StackPanel>
     </Border>
 
@@ -106,24 +106,73 @@
           <TextBlock Text="Channels" Classes="section"/>
         </StackPanel>
 
+        <Border DockPanel.Dock="Bottom"
+                BorderBrush="#D0D0D0"
+                BorderThickness="0,1,0,0"
+                Padding="0,8,0,0"
+                Margin="0,8,0,0">
+          <TextBlock Text="{Binding Status}"
+                     TextWrapping="Wrap"
+                     TextAlignment="Right"
+                     HorizontalAlignment="Stretch"/>
+        </Border>
+
         <ScrollViewer>
           <ItemsControl ItemsSource="{Binding Channels}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ChannelViewModel">
-                <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,4">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,4" ColumnSpacing="4">
                   <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"/>
-                  <CheckBox Grid.Column="1"
-                            Content="L"
+                  <TextBlock Grid.Column="1" Text="L" VerticalAlignment="Center">
+                    <TextBlock.Foreground>
+                      <MultiBinding Converter="{StaticResource CheckedTraceBrushConverter}">
+                        <Binding Path="IsSelectedLeft"/>
+                        <Binding Path="LeftTraceBrush"/>
+                      </MultiBinding>
+                    </TextBlock.Foreground>
+                  </TextBlock>
+                  <CheckBox Grid.Column="2"
                             IsChecked="{Binding IsSelectedLeft}"
                             IsEnabled="{Binding CanBeY}"
-                            BorderBrush="{Binding LeftTraceBrush, Converter={StaticResource TraceBrushBindingConverter}}"
-                            Foreground="{Binding LeftTraceBrush, Converter={StaticResource TraceBrushBindingConverter}}"/>
-                  <CheckBox Grid.Column="2"
-                            Content="R"
+                            VerticalAlignment="Center">
+                    <CheckBox.BorderBrush>
+                      <MultiBinding Converter="{StaticResource CheckedTraceBrushConverter}">
+                        <Binding Path="IsSelectedLeft"/>
+                        <Binding Path="LeftTraceBrush"/>
+                      </MultiBinding>
+                    </CheckBox.BorderBrush>
+                    <CheckBox.Foreground>
+                      <MultiBinding Converter="{StaticResource CheckedTraceBrushConverter}">
+                        <Binding Path="IsSelectedLeft"/>
+                        <Binding Path="LeftTraceBrush"/>
+                      </MultiBinding>
+                    </CheckBox.Foreground>
+                  </CheckBox>
+                  <TextBlock Grid.Column="3" Text="R" VerticalAlignment="Center">
+                    <TextBlock.Foreground>
+                      <MultiBinding Converter="{StaticResource CheckedTraceBrushConverter}">
+                        <Binding Path="IsSelectedRight"/>
+                        <Binding Path="RightTraceBrush"/>
+                      </MultiBinding>
+                    </TextBlock.Foreground>
+                  </TextBlock>
+                  <CheckBox Grid.Column="4"
                             IsChecked="{Binding IsSelectedRight}"
                             IsEnabled="{Binding CanBeY}"
-                            BorderBrush="{Binding RightTraceBrush, Converter={StaticResource TraceBrushBindingConverter}}"
-                            Foreground="{Binding RightTraceBrush, Converter={StaticResource TraceBrushBindingConverter}}"/>
+                            VerticalAlignment="Center">
+                    <CheckBox.BorderBrush>
+                      <MultiBinding Converter="{StaticResource CheckedTraceBrushConverter}">
+                        <Binding Path="IsSelectedRight"/>
+                        <Binding Path="RightTraceBrush"/>
+                      </MultiBinding>
+                    </CheckBox.BorderBrush>
+                    <CheckBox.Foreground>
+                      <MultiBinding Converter="{StaticResource CheckedTraceBrushConverter}">
+                        <Binding Path="IsSelectedRight"/>
+                        <Binding Path="RightTraceBrush"/>
+                      </MultiBinding>
+                    </CheckBox.Foreground>
+                  </CheckBox>
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
