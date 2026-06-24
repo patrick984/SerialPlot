@@ -108,6 +108,9 @@ public partial class MainWindow : Window
         Plot.Plot.YLabel("Left");
         Plot.Plot.Axes.Right.Label.Text = "Right";
         Plot.Plot.Axes.Right.IsVisible = true;
+        Plot.Plot.ShowLegend(Alignment.UpperRight);
+        Plot.Plot.Legend.Margin = new PixelPadding(0, 12, 8, 0);
+        Plot.Plot.Legend.Padding = new PixelPadding(8, 8, 8, 8);
         _steppedXAxisViewport.Reset();
         ResetXRangeAnimation();
         HideCursorOverlay();
@@ -128,7 +131,6 @@ public partial class MainWindow : Window
             UpdateSeriesData(vm, series, args);
         }
 
-        Plot.Plot.ShowLegend();
         UpdateSampleRate(args.BufferVersion);
         ApplyAutoscale(vm, args);
         UpdateMarkerVisibility();
